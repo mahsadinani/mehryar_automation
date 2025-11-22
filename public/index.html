@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>سیستم مدیریت آموزشی و مالی</title>
+  <style>
+    body { font-family: Vazirmatn, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b4f84; color: #222; direction: rtl }
+    header { background: transparent; color: #fff; padding: 20px 0 }
+    nav { display: flex; gap: 8px; padding: 12px; background: #fff; position: sticky; top: 0; border-bottom: 1px solid #e5e7eb }
+    nav button { padding: 8px 12px; border: 1px solid #d1d5db; background: #fff; cursor: pointer; border-radius: 6px }
+    nav button.active { background: #2f3e9e; color: #fff; border-color: #2f3e9e }
+    main { padding: 16px }
+    section { display: none }
+    section.active { display: block }
+    form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; background: #fff; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px }
+    input, select { padding: 8px; border: 1px solid #d1d5db; border-radius: 6px }
+    .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px }
+    .list { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-top: 12px }
+    .list h3 { margin: 0 0 8px }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px }
+    .card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; background: #fafafa }
+    .actions { display: flex; gap: 8px; margin-top: 8px }
+    .rf-container { background:#fff; border:1px solid #e5e7eb; border-radius:18px; overflow:hidden; box-shadow: 0 10px 24px rgba(0,0,0,.08) }
+    .rf-header { background:#0c5a98; color:#fff; padding:20px; display:flex; gap:12px; align-items:center }
+    .rf-header h2 { margin:0; font-size:20px }
+    .rf-header p { margin:4px 0 0; opacity:.92 }
+    .rf-grid { display:grid; grid-template-columns: 280px 1fr; gap:20px; padding:20px; align-items: start }
+    .rf-fields { background:#fff; padding:14px; border-radius:12px; border:1px solid #e5e7eb }
+    .rf-row { display:grid; grid-template-columns: 160px 1fr; gap:10px; align-items:center; margin-bottom:8px }
+    .rf-row label { color:#0c5a98; font-weight:600; text-align:right; line-height:1.3; margin:0 }
+    .rf-row input { background:#f5f7fa; border:1px solid #dbe0e6; border-radius:10px; padding:8px 10px; height:40px }
+    .rf-row textarea { background:#f5f7fa; border:1px solid #dbe0e6; border-radius:10px; padding:10px; min-height:96px; line-height:1.5 }
+    .rf-fields form { display: block; }
+    .rf-status { display:flex; flex-direction:column; gap:10px }
+    .rf-status-title { display:flex; align-items:center; gap:8px; color:#0c5a98; font-weight:700; margin-bottom:8px }
+    .rf-check { display:flex; align-items:center; gap:8px; background:#e8e526; padding:12px; border-radius:10px; cursor:pointer }
+    .rf-check input { width:16px; height:16px }
+    .rf-multi { position:relative }
+    .rf-multi-display { background:#f5f7fa; border:1px solid #dbe0e6; border-radius:10px; min-height:40px; padding:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap }
+    .rf-tag { background:#0c5a98; color:#fff; border-radius:6px; padding:4px 8px; font-size:12px }
+    .rf-dropdown { position:absolute; left:0; right:0; top:calc(100% + 4px); background:#fff; border:1px solid #e5e7eb; border-radius:10px; max-height:220px; overflow:auto; display:none; z-index:50 }
+    .rf-item { display:flex; align-items:center; gap:8px; padding:8px 10px; cursor:pointer }
+    .rf-item:hover { background:#f3f4f6 }
+    .container { max-width: 1100px; margin: 0 auto }
+    .btn { padding: 10px 14px; border-radius: 10px; border: 1px solid #2f3e9e; background: #2f3e9e; color:#fff; cursor:pointer }
+    .btn.btn-secondary { border-color: #e5e7eb; background:#fff; color:#111 }
+    #toast { position: fixed; bottom: 16px; right: 16px; display: grid; gap: 8px; z-index: 20 }
+    .toast { background:#111; color:#fff; padding: 10px 14px; border-radius: 10px; opacity: .95 }
+    .toast.success { background: #16a34a }
+    .toast.error { background: #dc2626 }
+    @media (max-width: 900px) {
+      .rf-grid { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .rf-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>سیستم مدیریت آموزشی و مالی</h1>
+    </div>
+  </header>
+  <nav id="tabs" class="container"></nav>
+  <main class="container">
+    <section id="ApplicantsForm" class="rf">
+      <div class="rf-container">
+        <div class="rf-header">
+          <div class="rf-header-icon"></div>
+          <div>
+            <h2>فرم ثبت نام مشتری</h2>
+            <p>لطفاً اطلاعات خود را برای ثبت نام در دوره وارد کنید</p>
+          </div>
+        </div>
+        <div class="rf-grid">
+          <div class="rf-status">
+            <button id="addApplicantBtn" class="btn" style="margin-bottom:10px">ثبت مشتری جدید</button>
+          </div>
+          <div class="rf-fields" id="applicantFormPanel">
+          <form id="applicantForm">
+            <div class="rf-row">
+              <label>تاریخ روز</label>
+              <input name="today" id="rfDate" readonly placeholder="این تاریخ به صورت خودکار درج می‌شود" />
+            </div>
+            <div class="rf-row">
+              <label>شماره تماس</label>
+              <input name="phone" id="rfPhone" placeholder="09123456789" required />
+            </div>
+            <div class="rf-row">
+              <label>نام مراجع</label>
+              <input name="name" id="rfName" placeholder="اگر خالی باشد ناشناس درج می‌شود" required />
+            </div>
+            <div class="rf-row">
+              <label>نام دوره</label>
+              <div class="rf-multi" id="rfCoursePicker">
+                <div class="rf-multi-display" id="rfCourseDisplay">انتخاب دوره‌ها...</div>
+                <div class="rf-dropdown" id="rfCourseDropdown"></div>
+              </div>
+            </div>
+            <div class="rf-row">
+              <label>نحوه آشنایی</label>
+              <input name="familiarity" id="rfFamiliarity" placeholder="از چه طریقی آشنا شدید؟" />
+            </div>
+            <div class="rf-row">
+              <label>توضیحات</label>
+              <textarea name="note" id="rfNotes" placeholder="برای ارائه توضیحات درباره‌ی شخص" rows="4"></textarea>
+            </div>
+
+            <div class="rf-status" style="margin-top:12px">
+              <div class="rf-status-title">وضعیت ثبت نام</div>
+              <div class="rf-check"><input type="checkbox" id="chkComplete" /><label for="chkComplete">تکمیل ثبت نام</label></div>
+              <div class="rf-check"><input type="checkbox" id="chkPreReg" /><label for="chkPreReg">ارسال فرم پیش ثبت نام</label></div>
+              <div class="rf-check"><input type="checkbox" id="chkWaiting" /><label for="chkWaiting">منتظر خبر از سمت متخصص</label></div>
+              <div class="rf-check"><input type="checkbox" id="chkNext" /><label for="chkNext">اطلاع از دوره های بعدی</label></div>
+              <div class="rf-check"><input type="checkbox" id="chkCancel" /><label for="chkCancel">انصراف از ثبت نام</label></div>
+              <div class="rf-check"><input type="checkbox" id="chkSendInfo" /><label for="chkSendInfo">ارسال اطلاعات دوره</label></div>
+            </div>
+            <input type="hidden" name="status" id="rfStatus" value="new" />
+            <input type="hidden" name="id" id="rfApplicantId" />
+            <div class="actions">
+              <button type="submit" class="btn">ثبت</button>
+              <button type="button" id="cancelApplicantForm" class="btn btn-secondary">انصراف</button>
+            </div>
+          </form>
+          </div>
+          </div>
+          <div class="list">
+          <h3>لیست متقاضیان</h3>
+          <div style="margin-bottom:8px"><input id="applicantSearch" placeholder="جستجو..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+          <div id="applicantsList" class="grid"></div>
+          </div>
+        </div>
+    </section>
+
+    <section id="CoursesForm" class="rf">
+      <div class="rf-container">
+        <div class="rf-header">
+          <div class="rf-header-icon"></div>
+          <div>
+            <h2>دوره‌ها</h2>
+            <p>مدیریت دوره‌های فنی و آموزشگاهی</p>
+          </div>
+        </div>
+        <div class="rf-grid" style="grid-template-columns: 1fr 1fr">
+          <div class="rf-fields">
+            <h3 style="margin:0 0 8px; color:#0c5a98">دوره‌های فنی</h3>
+            <div style="display:flex; gap:8px; margin-bottom:8px">
+              <button id="addTechCourseBtn" class="btn">افزودن دوره فنی</button>
+              <button id="importTechCoursesBtn" class="btn btn-secondary">ایمپورت دوره‌های جدید</button>
+              <button id="downloadTechTemplateBtn" class="btn btn-secondary">دانلود تمپلیت</button>
+              <input id="importTechFile" type="file" accept=".xlsx,.md,.csv" style="display:none" />
+            </div>
+            <div style="margin-bottom:8px"><input id="techCoursesSearch" placeholder="جستجوی دوره فنی..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+            <div id="techCoursesList" class="grid"></div>
+            <div id="techCourseFormPanel" style="display:none; margin-top:12px">
+              <form id="techCourseForm">
+                <div class="rf-row"><label>نام دوره (فارسی)</label><input name="name_fa" required /></div>
+                <div class="rf-row"><label>نام دوره (انگلیسی)</label><input name="name_en" /></div>
+                <div class="rf-row"><label>شهریه</label><input name="tuition" type="number" /></div>
+                <div class="rf-row"><label>کد دوره</label><input name="code" /></div>
+                <div class="rf-row"><label>ساعت دوره</label><input name="hours" type="number" /></div>
+                <input type="hidden" name="id" />
+                <div class="actions">
+                  <button type="submit" class="btn">ثبت</button>
+                  <button type="button" id="cancelTechCourseForm" class="btn btn-secondary">انصراف</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div class="rf-fields">
+            <h3 style="margin:0 0 8px; color:#0c5a98">دوره‌های آموزشگاهی</h3>
+            <div style="display:flex; gap:8px; margin-bottom:8px">
+              <button id="addSchoolCourseBtn" class="btn">افزودن دوره آموزشگاهی</button>
+              <button id="importSchoolCoursesBtn" class="btn btn-secondary">ایمپورت دوره‌های جدید</button>
+              <button id="downloadSchoolTemplateBtn" class="btn btn-secondary">دانلود تمپلیت</button>
+              <input id="importSchoolFile" type="file" accept=".xlsx,.md,.csv" style="display:none" />
+            </div>
+            <div style="margin-bottom:8px"><input id="schoolCoursesSearch" placeholder="جستجوی دوره آموزشگاهی..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+            <div id="schoolCoursesList" class="grid"></div>
+            <div id="schoolCourseFormPanel" style="display:none; margin-top:12px">
+              <form id="schoolCourseForm">
+                <div class="rf-row"><label>نام دوره</label><input name="name" required /></div>
+                <div class="rf-row"><label>مدرس</label><input name="teacher" /></div>
+                <div class="rf-row"><label>شهریه دوره</label><input name="tuition" id="schoolTuition" /></div>
+                <div class="rf-row"><label>تعداد ساعت کلاس</label><input name="hour" id="schoolHour" /></div>
+                <div class="rf-row"><label>تعداد جلسات</label><input name="sessions_count" id="schoolSessions" /></div>
+                <input type="hidden" name="id" />
+                <div class="actions">
+                  <button type="submit" class="btn">ثبت</button>
+                  <button type="button" id="cancelSchoolCourseForm" class="btn btn-secondary">انصراف</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="PreRegistrationForm" class="st">
+      <div class="rf-container">
+        <div class="rf-header">
+          <div class="rf-header-icon"></div>
+          <div>
+            <h2>لیست شاگردان</h2>
+            <p>افزودن و مدیریت اطلاعات شاگردان</p>
+          </div>
+        </div>
+        <div class="rf-grid">
+          <div class="rf-status">
+            <button id="addStudentBtn" class="btn">افزودن شاگرد جدید</button>
+          </div>
+          <div class="rf-fields">
+            <div class="list">
+              <h3>شاگردان</h3>
+              <div style="margin-bottom:8px"><input id="studentsSearch" placeholder="جستجو..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+              <div id="studentsList" class="grid"></div>
+            </div>
+            <div class="st-form" id="studentFormPanel" style="margin-top:12px">
+              <form id="studentForm">
+                <div class="rf-row"><label>نام</label><input name="name" required /></div>
+                <div class="rf-row"><label>نام خانوادگی</label><input name="last_name" required /></div>
+                <div class="rf-row"><label>نام و نام خانوادگی (انگلیسی)</label><input name="english_name" /></div>
+                <div class="rf-row"><label>شناسه دانشجویی</label><input name="student_id" readonly /></div>
+                <div class="rf-row"><label>صادره از</label><input name="issuer" /></div>
+                <div class="rf-row"><label>نام پدر</label><input name="father_name" /></div>
+                <div class="rf-row"><label>شماره ملی</label><input name="national_id" maxlength="10" placeholder="10 رقم" /></div>
+                <div class="rf-row"><label>نشانی</label><input name="address" /></div>
+                <div class="rf-row"><label>شماره تماس</label><input name="phone" /></div>
+                <div class="rf-row"><label>شماره تماس اضطراری</label><input name="emergency_phone" /></div>
+                <input type="hidden" name="id" />
+                <div class="actions">
+                  <button type="submit" class="btn">ثبت</button>
+                  <button type="button" id="cancelStudentForm" class="btn btn-secondary">انصراف</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ClassesDashboard">
+      <h2>کلاس‌ها</h2>
+      <div class="actions">
+        <button id="loadClasses" class="btn btn-secondary">بارگذاری کلاس‌ها</button>
+        <button id="addClassBtn" class="btn">افزودن کلاس جدید</button>
+      </div>
+      <div style="margin:10px 0"><input id="classesSearch" placeholder="جستجو کلاس..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+      <div id="classesList" class="grid"></div>
+      <div id="classFormPanel" class="rf-fields" style="display:none; margin-top:12px">
+        <form id="classForm">
+          <div class="rf-row"><label>کد کلاس</label><input name="code" required /></div>
+          <div class="rf-row"><label>نام دوره</label>
+            <select name="course_id" id="clsCourse"></select>
+          </div>
+          <div class="rf-row"><label>تاریخ شروع کلاس</label><input name="start" type="date" /></div>
+          <div class="rf-row"><label>تاریخ پایان دوره</label><input name="end_date" type="date" /></div>
+          <div class="rf-row"><label>تاریخ صدور مدرک</label><input name="certificate_issue_date" type="date" /></div>
+          <div class="rf-row"><label>مدرس</label><input name="teacher" /></div>
+          <div class="rf-row"><label>ساعت کلاس</label><input name="time" /></div>
+          <div class="rf-row"><label>روزهای برگزاری</label>
+            <div id="clsDays" style="display:flex; gap:8px; flex-wrap:wrap">
+              <label><input type="checkbox" value="شنبه" /> شنبه</label>
+              <label><input type="checkbox" value="یکشنبه" /> یکشنبه</label>
+              <label><input type="checkbox" value="دوشنبه" /> دوشنبه</label>
+              <label><input type="checkbox" value="سه‌شنبه" /> سه‌شنبه</label>
+              <label><input type="checkbox" value="چهارشنبه" /> چهارشنبه</label>
+              <label><input type="checkbox" value="پنجشنبه" /> پنجشنبه</label>
+              <label><input type="checkbox" value="جمعه" /> جمعه</label>
+            </div>
+          </div>
+          <div class="rf-row"><label>تعداد جلسات</label><input name="sessions_count" id="clsSessionsCount" type="number" min="1" value="1" /></div>
+          <div class="rf-row"><label>لیست شاگردان</label>
+            <div id="clsStudents" style="display:flex; gap:8px; flex-wrap:wrap"></div>
+          </div>
+          <div class="rf-row"><label>جلسات</label>
+            <div id="clsSessions" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px"></div>
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn">ثبت کلاس</button>
+            <button type="button" id="cancelClassForm" class="btn btn-secondary">انصراف</button>
+          </div>
+        </form>
+      </div>
+      <div class="list">
+        <h3>ثبت حضور</h3>
+        <form id="attendanceForm">
+          <input name="classId" placeholder="شناسه کلاس" required />
+          <input name="studentId" placeholder="شناسه شاگرد" required />
+          <select name="present">
+            <option value="true">حاضر</option>
+            <option value="false">غایب</option>
+          </select>
+          <button type="submit" class="btn">ثبت</button>
+        </form>
+        <div id="attendanceResult"></div>
+      </div>
+    </section>
+
+    <section id="FinanceDashboard">
+      <h2>امور مالی</h2>
+      <div class="actions">
+        <button id="addStudentFinanceBtn" class="btn">افزودن پروفایل مالی جدید</button>
+      </div>
+      <div class="rf-fields" id="studentFinanceFormPanel" style="display:none; margin-top:12px">
+        <form id="studentFinanceForm">
+          <div class="rf-row"><label>نام شاگرد</label>
+            <select name="student_id" id="sfStudent" required></select>
+          </div>
+          <div class="rf-row"><label>کد کلاس</label>
+            <select name="class_code" id="sfClass" required></select>
+          </div>
+          <div class="rf-row"><label>مبلغ پیش‌پرداخت</label><input name="upfront_amount" id="sfUpfrontAmount" /></div>
+          <div class="rf-row"><label>تاریخ پیش‌پرداخت</label><input name="upfront_date" id="sfUpfrontDate" type="date" /></div>
+          <div class="rf-row"><label>اقساط</label>
+            <div id="sfInstallments" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px"></div>
+            <div class="actions"><button type="button" id="addInstallmentBtn" class="btn btn-secondary">افزودن قسط</button></div>
+          </div>
+          <div class="rf-row"><label>وضعیت تسویه</label>
+            <select name="status" id="sfStatus">
+              <option value="تسویه شده">تسویه شده</option>
+              <option value="کنسل شده">کنسل شده</option>
+              <option value="در انتظار تسویه" selected>در انتظار تسویه</option>
+            </select>
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn">ثبت پروفایل مالی</button>
+            <button type="button" id="cancelStudentFinanceForm" class="btn btn-secondary">انصراف</button>
+          </div>
+        </form>
+      </div>
+      <div class="list">
+        <h3>پروفایل‌های مالی شاگردان</h3>
+        <div style="margin-bottom:8px"><input id="studentFinanceSearch" placeholder="جستجو پروفایل..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+        <div id="studentFinanceList" class="grid"></div>
+      </div>
+    </section>
+
+    
+    <section id="CertIssuance" class="rf">
+      <div class="rf-container">
+        <div class="rf-header">
+          <div class="rf-header-icon"></div>
+          <div>
+            <h2>صدور گواهینامه</h2>
+            <p>ساخت دوره مدارک و افزودن شاگردان برای صدور</p>
+          </div>
+        </div>
+        <div class="rf-grid">
+          <div class="rf-status">
+            <button id="addCertCourseBtn" class="btn">افزودن دوره‌ی مدارک جدید</button>
+          </div>
+          <div class="rf-fields" id="certCoursePanel" style="display:none">
+            <div class="actions">
+              <button id="addCertStudentBtn" class="btn btn-secondary" type="button">افزودن شاگرد</button>
+              <button id="exportCertDocBtn" class="btn" type="button">خروجی ورد</button>
+            </div>
+            <div id="certEntries" class="list">
+              <h3>شاگردان برای صدور مدرک</h3>
+              <div id="certList" class="grid"></div>
+            </div>
+            <div id="certStudentFormPanel" style="display:none; margin-top:12px">
+              <form id="certStudentForm">
+                <div class="rf-row"><label>نام شاگرد</label><select id="certStudentSelect" required></select></div>
+                <div class="rf-row"><label>نام لاتین شاگرد</label><input id="certStudentEnglish" readonly /></div>
+                <div class="rf-row"><label>شناسه دانشجویی</label><input id="certStudentId" readonly /></div>
+                <div class="rf-row"><label>کد ملی</label><input id="certNationalId" readonly /></div>
+                <div class="rf-row"><label>صادره از</label><input id="certIssuer" readonly /></div>
+                <div class="rf-row"><label>کد کلاس</label><select id="certClassSelect" required></select></div>
+                <div class="rf-row"><label>نام دوره</label><input id="certCourseName" readonly /></div>
+                <div class="rf-row"><label>نام لاتین دوره</label><input id="certCourseEnglish" readonly /></div>
+                <div class="rf-row"><label>تعداد ساعت دوره</label><input id="certCourseHours" readonly /></div>
+                <div class="rf-row"><label>تاریخ پایان دوره</label><input id="certEndDate" readonly /></div>
+                <div class="rf-row"><label>تاریخ صدور مدرک</label><input id="certIssueDate" readonly /></div>
+                <div class="actions"><button type="submit" class="btn">افزودن</button><button id="cancelCertStudentForm" type="button" class="btn btn-secondary">انصراف</button></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="DataLinksManager">
+      <h2>List Box لینک‌های Google Sheet</h2>
+      <form id="linksForm"></form>
+      <div class="list">
+        <h3>لینک‌های فعال</h3>
+        <div id="linksView"></div>
+      </div>
+    </section>
+  </main>
+  <div id="toast" aria-live="polite" aria-atomic="true"></div>
+  <script>
+    const tabs = [
+      { id: "ApplicantsForm", label: "فرم ورودی" },
+      { id: "PreRegistrationForm", label: "لیست شاگردان" },
+      { id: "ClassesDashboard", label: "کلاس‌ها" },
+      { id: "FinanceDashboard", label: "مالی" },
+      
+      { id: "DataLinksManager", label: "لینک‌های Sheets" },
+      { id: "CoursesForm", label: "دوره‌ها" },
+      { id: "CertIssuance", label: "صدور گواهینامه" }
+    ];
+    const nav = document.getElementById("tabs");
+    const main = document.querySelector("main");
+    tabs.forEach(t => {
+      const b = document.createElement("button");
+      b.textContent = t.label;
+      b.dataset.id = t.id;
+      b.onclick = () => activate(t.id);
+      nav.appendChild(b);
+    });
+    function activate(id) {
+      document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.id === id));
+      document.querySelectorAll("section").forEach(s => s.classList.toggle("active", s.id === id));
+    }
+    activate(tabs[0].id);
+    function showToast(text, type = "success") {
+      const box = document.getElementById("toast");
+      const el = document.createElement("div");
+      el.className = `toast ${type}`;
+      el.textContent = text;
+      box.appendChild(el);
+      setTimeout(() => { el.remove(); }, 2500);
+    }
+    const applicantForm = document.getElementById("applicantForm");
+    const addApplicantBtn = document.getElementById("addApplicantBtn");
+    const applicantFormPanel = document.getElementById("applicantFormPanel");
+    const cancelApplicantForm = document.getElementById("cancelApplicantForm");
+    function openApplicantForm(){ applicantFormPanel.style.display = "block"; }
+    function closeApplicantForm(){ applicantFormPanel.style.display = "none"; }
+    addApplicantBtn.addEventListener("click", openApplicantForm);
+    cancelApplicantForm.addEventListener("click", closeApplicantForm);
+    applicantForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(applicantForm);
+      const payload = Object.fromEntries(fd.entries());
+      payload.course = (window.selectedCourses || []).join(", ");
+      const statusOrder = [
+        { el: document.getElementById("chkComplete"), val: "registration_complete" },
+        { el: document.getElementById("chkPreReg"), val: "to_pre_registration" },
+        { el: document.getElementById("chkWaiting"), val: "waiting_applicant" },
+        { el: document.getElementById("chkNext"), val: "next_courses_info" },
+        { el: document.getElementById("chkCancel"), val: "cancelled" },
+        { el: document.getElementById("chkSendInfo"), val: "send_course_info" }
+      ];
+      const found = statusOrder.find(s => s.el && s.el.checked);
+      payload.status = found ? found.val : (payload.status || "new");
+      payload.complete = !!document.getElementById("chkComplete")?.checked;
+      payload.pre_register = !!document.getElementById("chkPreReg")?.checked;
+      payload.waiting_applicant = !!document.getElementById("chkWaiting")?.checked;
+      payload.next_courses_info = !!document.getElementById("chkNext")?.checked;
+      payload.cancelled = !!document.getElementById("chkCancel")?.checked;
+      payload.send_course_info = !!document.getElementById("chkSendInfo")?.checked;
+      const isEdit = !!payload.id;
+      if (!isEdit) {
+      try {
+        const res = await fetch("https://33499-il9bs.irann8n.com/webhook-test/e46e7fbf-e6eb-4008-9516-016957e65d89", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+          if (!res.ok) {
+            showToast("وب‌هوک فعال نیست یا خطا دارد", "error");
+          } else {
+            showToast("ارسال به وب‌هوک انجام شد", "success");
+          }
+        } catch (err) {
+          showToast("عدم دسترسی به وب‌هوک", "error");
+        }
+        try { await fetch("/api/applicants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); } catch {}
+      } else {
+        try { await fetch(`/api/applicants/${payload.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); showToast("متقاضی ویرایش شد", "success"); } catch { showToast("خطا در ویرایش متقاضی", "error"); }
+      }
+      loadApplicants();
+    });
+    const rfDate = document.getElementById("rfDate");
+    if (rfDate) rfDate.value = new Date().toLocaleDateString("fa-IR");
+    window.selectedCourses = [];
+    const rfCoursePicker = document.getElementById("rfCoursePicker");
+    const rfCourseDisplay = document.getElementById("rfCourseDisplay");
+    const rfCourseDropdown = document.getElementById("rfCourseDropdown");
+    function renderSelectedCourses() {
+      if (!rfCourseDisplay) return;
+      rfCourseDisplay.innerHTML = "";
+      if (!window.selectedCourses.length) {
+        rfCourseDisplay.textContent = "انتخاب دوره‌ها...";
+        return;
+      }
+      window.selectedCourses.forEach(c => {
+        const tag = document.createElement("span");
+        tag.className = "rf-tag";
+        tag.textContent = c;
+        rfCourseDisplay.appendChild(tag);
+      });
+    }
+    function toggleCourse(name) {
+      const arr = window.selectedCourses;
+      const idx = arr.indexOf(name);
+      if (idx >= 0) arr.splice(idx, 1); else arr.push(name);
+      renderSelectedCourses();
+    }
+    rfCoursePicker.addEventListener("click", () => {
+      const visible = rfCourseDropdown.style.display === "block";
+      rfCourseDropdown.style.display = visible ? "none" : "block";
+    });
+    async function loadCourses() {
+      const res = await fetch("/api/courses");
+      const items = await res.json();
+      rfCourseDropdown.innerHTML = "";
+      items.forEach(c => {
+        const row = document.createElement("div");
+        row.className = "rf-item";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = window.selectedCourses.includes(c.name);
+        cb.onchange = () => toggleCourse(c.name);
+        const label = document.createElement("span");
+        label.textContent = `${c.name}`;
+        row.appendChild(cb);
+        row.appendChild(label);
+        row.onclick = () => { cb.checked = !cb.checked; toggleCourse(c.name); };
+        rfCourseDropdown.appendChild(row);
+      });
+      renderSelectedCourses();
+    }
+    loadCourses();
+    const applicantSearch = document.getElementById("applicantSearch");
+    function renderApplicants(items){
+      const list = document.getElementById("applicantsList");
+      const q = (applicantSearch?.value || "").trim();
+      const filtered = q ? items.filter(x => `${x.name||""} ${x.phone||""} ${x.course||""}`.includes(q)) : items;
+      list.innerHTML = "";
+      filtered.forEach(x => {
+        const c = document.createElement("div");
+        c.className = "card";
+        const title = document.createElement("div");
+        title.textContent = `${x.name||""} | ${x.phone||""} | ${x.course||""}`;
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        const addBtn = document.createElement("button");
+        addBtn.className = "btn btn-secondary";
+        addBtn.textContent = "افزودن به لیست شاگردان";
+        addBtn.onclick = async () => {
+          const payload = { name: x.name||"", phone: x.phone||"", status: "active" };
+          try {
+            const res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            const json = await res.json();
+            showToast(json.ok ? "شاگرد اضافه شد" : "خطا در افزودن", json.ok ? "success" : "error");
+          } catch { showToast("خطا در اتصال", "error"); }
+        };
+        const editBtn = document.createElement("button");
+        editBtn.className = "btn";
+        editBtn.textContent = "ویرایش";
+        editBtn.onclick = () => {
+          openApplicantForm();
+          document.getElementById("rfApplicantId").value = x.id || "";
+          document.getElementById("rfDate").value = new Date().toLocaleDateString("fa-IR");
+          document.getElementById("rfName").value = x.name || "";
+          document.getElementById("rfPhone").value = x.phone || "";
+          document.getElementById("rfFamiliarity").value = x.familiarity || "";
+          document.getElementById("rfNotes").value = x.note || "";
+          document.getElementById("rfStatus").value = x.status || "new";
+          const setCB = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+          setCB("chkComplete", x.complete);
+          setCB("chkPreReg", x.pre_register);
+          setCB("chkWaiting", x.waiting_applicant);
+          setCB("chkNext", x.next_courses_info);
+          setCB("chkCancel", x.cancelled);
+          setCB("chkSendInfo", x.send_course_info);
+        };
+        actions.appendChild(addBtn);
+        actions.appendChild(editBtn);
+        c.appendChild(title);
+        c.appendChild(actions);
+        list.appendChild(c);
+      });
+    }
+    applicantSearch?.addEventListener("input", () => renderApplicants(window.applicantsData||[]));
+    async function loadApplicants() {
+      const res = await fetch("/api/applicants");
+      const items = await res.json();
+      window.applicantsData = items;
+      renderApplicants(items);
+    }
+    loadApplicants();
+    const preRegForm = document.getElementById("preRegForm");
+    const paymentResult = document.getElementById("paymentResult");
+    // Students UI
+    const addStudentBtn = document.getElementById("addStudentBtn");
+    const studentsList = document.getElementById("studentsList");
+    const studentsSearch = document.getElementById("studentsSearch");
+    const studentFormPanel = document.getElementById("studentFormPanel");
+    const studentForm = document.getElementById("studentForm");
+    const cancelStudentForm = document.getElementById("cancelStudentForm");
+    function openStudentForm(data = null) {
+      studentForm.reset();
+      const nationalInput = studentForm.querySelector('[name="national_id"]');
+      const studentIdInput = studentForm.querySelector('[name="student_id"]');
+      if (data) {
+        Object.entries(data).forEach(([k, v]) => {
+          const el = studentForm.querySelector(`[name="${k}"]`);
+          if (el) el.value = v || "";
+        });
+        if (data.national_id && studentIdInput) {
+          const raw = String(data.national_id).replace(/\D/g, "");
+          if (raw.length === 10) studentIdInput.value = raw.replace(/^0+/, "");
+        }
+      }
+      studentFormPanel.style.display = "block";
+    }
+    function closeStudentForm() { studentFormPanel.style.display = "none"; }
+    addStudentBtn.addEventListener("click", () => openStudentForm());
+    cancelStudentForm.addEventListener("click", closeStudentForm);
+    function renderStudents(items){
+      const q = (studentsSearch?.value || "").trim();
+      const filtered = q ? items.filter(x => `${x.name||""} ${x.last_name||""} ${x.phone||""} ${x.student_id||""}`.includes(q)) : items;
+      studentsList.innerHTML = "";
+      filtered.forEach(x => {
+        const c = document.createElement("div");
+        c.className = "card";
+        c.innerHTML = `${x.name || ""} ${x.last_name || ""} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
+        const edit = document.createElement("button");
+        edit.className = "btn btn-secondary";
+        edit.textContent = "ویرایش";
+        edit.style.marginTop = "8px";
+        edit.onclick = () => openStudentForm(x);
+        c.appendChild(edit);
+        studentsList.appendChild(c);
+      });
+    }
+    studentsSearch?.addEventListener("input", () => renderStudents(window.studentsData||[]));
+    async function loadStudents() {
+      const res = await fetch("/api/students");
+      const items = await res.json();
+      window.studentsData = items;
+      renderStudents(items);
+    }
+    loadStudents();
+    studentForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(studentForm);
+      const payload = Object.fromEntries(fd.entries());
+      const nraw = String(payload.national_id || "").replace(/\D/g, "");
+      if (nraw.length === 10) payload.student_id = nraw.replace(/^0+/, "");
+      const id = payload.id;
+      let res;
+      if (id) {
+        res = await fetch(`/api/students/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      } else {
+        res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      }
+      const json = await res.json();
+      showToast(id ? "شاگرد به‌روزرسانی شد" : "شاگرد اضافه شد", json.ok ? "success" : "error");
+      closeStudentForm();
+      loadStudents();
+    });
+
+    // Auto-fill student_id from national_id, enforce 10 digits and trim leading zeros
+    (function attachNationalAuto(){
+      const nationalInput = studentForm.querySelector('[name="national_id"]');
+      const studentIdInput = studentForm.querySelector('[name="student_id"]');
+      if (!nationalInput || !studentIdInput) return;
+      nationalInput.addEventListener('input', () => {
+        const raw = nationalInput.value.replace(/\D/g, '');
+        if (raw.length > 10) nationalInput.value = raw.slice(0,10);
+        else nationalInput.value = raw;
+        if (raw.length === 10) studentIdInput.value = raw.replace(/^0+/, '');
+        else studentIdInput.value = '';
+      });
+    })();
+    const loadClassesBtn = document.getElementById("loadClasses");
+    loadClassesBtn.addEventListener("click", loadClasses);
+    const addClassBtn = document.getElementById("addClassBtn");
+    const classFormPanel = document.getElementById("classFormPanel");
+    const classForm = document.getElementById("classForm");
+    const cancelClassForm = document.getElementById("cancelClassForm");
+    const classesSearch = document.getElementById("classesSearch");
+    function openClassForm(){ classForm.reset(); classFormPanel.style.display = "block"; renderSessionBoxes(); }
+    function closeClassForm(){ classFormPanel.style.display = "none"; }
+    addClassBtn.addEventListener("click", openClassForm);
+    cancelClassForm.addEventListener("click", closeClassForm);
+    const clsCourse = document.getElementById("clsCourse");
+    async function loadCourseOptions(){
+      const [schoolRes, techRes] = await Promise.all([fetch("/api/courses"), fetch("/api/tech-courses")]);
+      const school = await schoolRes.json();
+      const tech = await techRes.json();
+      clsCourse.innerHTML = "";
+      school.forEach(c => { const opt = document.createElement("option"); opt.value = c.id || c.name; opt.textContent = `آموزشگاهی: ${c.name}`; opt.dataset.sessions = c.sessions_count || 0; clsCourse.appendChild(opt); });
+      tech.forEach(c => { const opt = document.createElement("option"); opt.value = c.id || c.name_fa; opt.textContent = `فنی: ${c.name_fa}`; opt.dataset.sessions = 0; clsCourse.appendChild(opt); });
+      const clsTechCode = document.getElementById("clsTechCode");
+      if (clsTechCode) {
+        clsTechCode.innerHTML = "";
+        tech.forEach(c => { const opt = document.createElement("option"); opt.value = c.code || ""; opt.textContent = `${c.code || ""} - ${c.name_fa || ""}`; clsTechCode.appendChild(opt); });
+      }
+    }
+    loadCourseOptions();
+    const clsSessionsCount = document.getElementById("clsSessionsCount");
+    const clsSessions = document.getElementById("clsSessions");
+    function renderSessionBoxes(){
+      const n = Math.max(1, Number(clsSessionsCount.value || 1));
+      clsSessions.innerHTML = "";
+      for(let i=1;i<=n;i++){
+        const box = document.createElement("div");
+        box.className = "card";
+        const di = document.createElement("input"); di.type = "date"; di.name = `session_date_${i}`;
+        const c1 = document.createElement("label");
+        const c1i = document.createElement("input"); c1i.type = "checkbox"; c1i.name = `session_cancel_${i}`; c1.appendChild(c1i); c1.appendChild(document.createTextNode(" کلاس کنسل شد"));
+        const c2 = document.createElement("label");
+        const c2i = document.createElement("input"); c2i.type = "checkbox"; c2i.name = `session_held_${i}`; c2.appendChild(c2i); c2.appendChild(document.createTextNode(" کلاس برگزار شد"));
+        box.appendChild(document.createTextNode(`جلسه ${i}`));
+        box.appendChild(document.createElement("br"));
+        box.appendChild(di);
+        box.appendChild(document.createElement("br"));
+        box.appendChild(c1);
+        box.appendChild(c2);
+        clsSessions.appendChild(box);
+      }
+    }
+    clsSessionsCount.addEventListener("input", renderSessionBoxes);
+    clsCourse.addEventListener("change", () => { const s = Number(clsCourse.selectedOptions[0]?.dataset.sessions || 0); if (s>0){ clsSessionsCount.value = s; renderSessionBoxes(); } });
+    const clsStudents = document.getElementById("clsStudents");
+    async function loadStudentsForClass(){
+      const res = await fetch("/api/students");
+      const students = await res.json();
+      clsStudents.innerHTML = "";
+      students.forEach(st => { const label = document.createElement("label"); const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = st.id || `${st.name}`; label.appendChild(cb); label.appendChild(document.createTextNode(` ${st.name||""} ${st.last_name||""}`)); clsStudents.appendChild(label); });
+    }
+    loadStudentsForClass();
+    classForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(classForm);
+      const payload = Object.fromEntries(fd.entries());
+      const days = Array.from(document.querySelectorAll('#clsDays input[type="checkbox"]:checked')).map(i => i.value);
+      const studentsSel = Array.from(clsStudents.querySelectorAll('input[type="checkbox"]:checked')).map(i => i.value);
+      const sessions = [];
+      const n = Math.max(1, Number(payload.sessions_count || 1));
+      for(let i=1;i<=n;i++){
+        sessions.push({ index: i, date: payload[`session_date_${i}`] || null, cancelled: !!payload[`session_cancel_${i}`], held: !!payload[`session_held_${i}`] });
+        delete payload[`session_date_${i}`]; delete payload[`session_cancel_${i}`]; delete payload[`session_held_${i}`];
+      }
+      payload.days = days;
+      payload.students = studentsSel;
+      payload.sessions = sessions;
+      payload.title = clsCourse.selectedOptions[0]?.textContent || "";
+      const res = await fetch("/api/classes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const json = await res.json();
+      showToast(json.ok ? "کلاس ثبت شد" : "خطا در ثبت کلاس", json.ok ? "success" : "error");
+      closeClassForm();
+      loadClasses();
+    });
+    function renderClasses(items){
+      const q = (document.getElementById("classesSearch")?.value||"").trim();
+      const filtered = q ? items.filter(x => `${x.title||""} ${x.teacher||""} ${x.code||""}`.includes(q)) : items;
+      const list = document.getElementById("classesList");
+      list.innerHTML = "";
+      filtered.forEach(x => {
+        const c = document.createElement("div");
+        c.className = "card";
+        c.textContent = `${x.title || ""} | ${x.teacher || ""} | ${x.code || ""}`;
+        list.appendChild(c);
+      });
+    }
+    document.getElementById("classesSearch")?.addEventListener("input", () => renderClasses(window.classesData||[]));
+    async function loadClasses() {
+      const res = await fetch("/api/classes");
+      const items = await res.json();
+      window.classesData = items;
+      renderClasses(items);
+      showToast("کلاس‌ها بارگذاری شد", "success");
+    }
+    const attendanceForm = document.getElementById("attendanceForm");
+    const attendanceResult = document.getElementById("attendanceResult");
+    attendanceForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(attendanceForm);
+      const payload = Object.fromEntries(fd.entries());
+      payload.present = payload.present === "true";
+      const res = await fetch("/api/classes/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const json = await res.json();
+      attendanceResult.textContent = json.ok ? "ثبت شد" : "خطا";
+      showToast(json.ok ? "حضور ثبت شد" : "خطا در ثبت حضور", json.ok ? "success" : "error");
+    });
+    const addStudentFinanceBtn = document.getElementById("addStudentFinanceBtn");
+    const studentFinanceFormPanel = document.getElementById("studentFinanceFormPanel");
+    const studentFinanceForm = document.getElementById("studentFinanceForm");
+    const cancelStudentFinanceForm = document.getElementById("cancelStudentFinanceForm");
+    const sfStudent = document.getElementById("sfStudent");
+    const sfClass = document.getElementById("sfClass");
+    const sfInstallments = document.getElementById("sfInstallments");
+    const addInstallmentBtn = document.getElementById("addInstallmentBtn");
+    function openStudentFinanceForm(){ studentFinanceForm.reset(); studentFinanceFormPanel.style.display = "block"; sfInstallments.innerHTML = ""; }
+    function closeStudentFinanceForm(){ studentFinanceFormPanel.style.display = "none"; }
+    addStudentFinanceBtn.addEventListener("click", openStudentFinanceForm);
+    cancelStudentFinanceForm.addEventListener("click", closeStudentFinanceForm);
+    async function loadSfOptions(){
+      const [stRes, clsRes] = await Promise.all([fetch("/api/students"), fetch("/api/classes")]);
+      const students = await stRes.json();
+      const classes = await clsRes.json();
+      sfStudent.innerHTML = "";
+      students.forEach(s => { const opt = document.createElement("option"); opt.value = s.id || `${s.name}`; opt.textContent = `${s.name||""} ${s.last_name||""}`; sfStudent.appendChild(opt); });
+      sfClass.innerHTML = "";
+      classes.forEach(c => { const opt = document.createElement("option"); opt.value = c.code || c.id || ""; opt.textContent = `${c.code||""} - ${c.title||c.name||""}`; sfClass.appendChild(opt); });
+    }
+    loadSfOptions();
+    function addInstallmentRow(){
+      const wrap = document.createElement("div"); wrap.className = "card";
+      const amt = document.createElement("input"); amt.placeholder = "مبلغ قسط"; amt.name = `installment_amount_${Date.now()}`;
+      const dt = document.createElement("input"); dt.type = "date"; dt.name = `installment_date_${Date.now()}`;
+      wrap.appendChild(amt); wrap.appendChild(dt);
+      sfInstallments.appendChild(wrap);
+    }
+    addInstallmentBtn.addEventListener("click", addInstallmentRow);
+    const studentFinanceList = document.getElementById("studentFinanceList");
+    const studentFinanceSearch = document.getElementById("studentFinanceSearch");
+    function renderStudentFinance(items){
+      const q = (studentFinanceSearch?.value||"").trim();
+      const filtered = q ? items.filter(x => `${x.class_code||""} ${x.status||""} ${x.student_id||""}`.includes(q)) : items;
+      studentFinanceList.innerHTML = "";
+      filtered.forEach(x => { const c = document.createElement("div"); c.className = "card"; c.textContent = `${x.student_id} | ${x.class_code} | ${x.status}`; studentFinanceList.appendChild(c); });
+    }
+    studentFinanceSearch?.addEventListener("input", () => renderStudentFinance(window.studentFinanceData||[]));
+    async function loadStudentFinance(){
+      const res = await fetch("/api/finance/student-profiles");
+      const items = await res.json();
+      window.studentFinanceData = items;
+      renderStudentFinance(items);
+    }
+    loadStudentFinance();
+    studentFinanceForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(studentFinanceForm);
+      const obj = Object.fromEntries(fd.entries());
+      const installments = [];
+      Array.from(sfInstallments.querySelectorAll(".card")).forEach(card => {
+        const ia = card.querySelector('[name^="installment_amount_"]');
+        const idt = card.querySelector('[name^="installment_date_"]');
+        if (ia && idt && idt.value) installments.push({ amount: Number(String(ia.value||"").replace(/[^0-9]/g, "")) || 0, date: idt.value });
+      });
+      const payload = {
+        student_id: obj.student_id,
+        class_code: obj.class_code,
+        upfront_amount: Number(String(obj.upfront_amount||"").replace(/[^0-9]/g, "")) || 0,
+        upfront_date: obj.upfront_date || null,
+        installments,
+        status: obj.status
+      };
+      const res = await fetch("/api/finance/student-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const json = await res.json();
+      showToast(json.ok ? "پروفایل مالی ثبت شد" : "خطا در ثبت پروفایل", json.ok ? "success" : "error");
+      closeStudentFinanceForm();
+      loadStudentFinance();
+    });
+    
+    const linksForm = document.getElementById("linksForm");
+    const linksView = document.getElementById("linksView");
+    async function loadLinks() {
+      const res = await fetch("/api/data-links");
+      const links = await res.json();
+      linksForm.innerHTML = "";
+      Object.entries(links).forEach(([k, v]) => {
+        const i = document.createElement("input");
+        i.name = k;
+        i.placeholder = k;
+        i.value = v || "";
+        linksForm.appendChild(i);
+      });
+      const btn = document.createElement("button");
+      btn.type = "submit";
+      btn.textContent = "ذخیره";
+      btn.className = "btn";
+      linksForm.appendChild(btn);
+      linksView.textContent = JSON.stringify(links);
+    }
+    linksForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(linksForm);
+      const payload = Object.fromEntries(fd.entries());
+      const res = await fetch("/api/data-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const json = await res.json();
+      linksView.textContent = JSON.stringify(json);
+      showToast("لینک‌ها ذخیره شد", "success");
+    });
+    loadLinks();
+    const addTechCourseBtn = document.getElementById("addTechCourseBtn");
+    const techCourseFormPanel = document.getElementById("techCourseFormPanel");
+    const techCourseForm = document.getElementById("techCourseForm");
+    const cancelTechCourseForm = document.getElementById("cancelTechCourseForm");
+    const techCoursesList = document.getElementById("techCoursesList");
+    const techCoursesSearch = document.getElementById("techCoursesSearch");
+    function openTechCourseForm(data=null){
+      techCourseForm.reset();
+      if (data) Object.entries(data).forEach(([k,v])=>{ const el = techCourseForm.querySelector(`[name="${k}"]`); if(el) el.value = v||""; });
+      techCourseFormPanel.style.display = "block";
+    }
+    function closeTechCourseForm(){ techCourseFormPanel.style.display = "none"; }
+    addTechCourseBtn?.addEventListener("click", ()=>openTechCourseForm());
+    cancelTechCourseForm?.addEventListener("click", closeTechCourseForm);
+    function toFaDigits(str){
+      return String(str).replace(/[0-9]/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+    }
+    function formatFaNumber(n){
+      const s = String(n);
+      const parts = s.split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return toFaDigits(parts.join("."));
+    }
+    function renderTechCourses(items){
+      const q = (techCoursesSearch?.value||"").trim();
+      const filtered = q ? items.filter(x => `${x.name_fa||""} ${x.name_en||""} ${x.code||""}`.includes(q)) : items;
+      techCoursesList.innerHTML = "";
+      filtered.forEach(x=>{
+        const c = document.createElement("div");
+        c.className = "card";
+        const tuition = typeof x.tuition !== 'undefined' ? ` | شهریه: ${formatFaNumber(x.tuition)}` : "";
+        const hours = typeof x.hours !== 'undefined' ? ` | ساعت: ${formatFaNumber(x.hours)}` : "";
+        c.innerHTML = `${x.name_fa||""} | ${x.name_en||""} ${x.code?`| ${x.code}`:""}${hours}${tuition}`;
+        const edit = document.createElement("button");
+        edit.className = "btn btn-secondary";
+        edit.textContent = "ویرایش";
+        edit.style.marginTop = "8px";
+        edit.onclick = ()=>openTechCourseForm(x);
+        c.appendChild(edit);
+        techCoursesList.appendChild(c);
+      });
+    }
+    techCoursesSearch?.addEventListener("input", ()=>renderTechCourses(window.techCoursesData||[]));
+    async function loadTechCourses(){
+      const res = await fetch("/api/tech-courses");
+      const items = await res.json();
+      window.techCoursesData = items;
+      renderTechCourses(items);
+    }
+    loadTechCourses();
+    techCourseForm?.addEventListener("submit", async e=>{
+      e.preventDefault();
+      const fd = new FormData(techCourseForm);
+      const payload = Object.fromEntries(fd.entries());
+      const id = payload.id;
+      let res;
+      try { await fetch("https://33499-il9bs.irann8n.com/webhook-test/e46e7fbf-e6eb-4008-9516-016957e65d89", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"tech_course_submit", payload }) }); } catch {}
+      if(id) res = await fetch(`/api/tech-courses/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+      else res = await fetch("/api/tech-courses", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+      const json = await res.json();
+      showToast(id?"دوره فنی به‌روزرسانی شد":"دوره فنی اضافه شد", json.ok?"success":"error");
+      closeTechCourseForm();
+      loadTechCourses();
+    });
+    const importTechCoursesBtn = document.getElementById("importTechCoursesBtn");
+    const importTechFile = document.getElementById("importTechFile");
+    importTechCoursesBtn?.addEventListener("click", ()=> importTechFile?.click());
+    importTechFile?.addEventListener("change", async () => {
+      const f = importTechFile.files[0];
+      if (!f) return;
+      const fd = new FormData();
+      fd.append("file", f);
+      const res = await fetch("/api/import/tech-courses", { method: "POST", body: fd });
+      const json = await res.json();
+      showToast(json.ok ? "ایمپورت دوره‌های فنی انجام شد" : "خطا در ایمپورت", json.ok ? "success" : "error");
+      importTechFile.value = "";
+      loadTechCourses();
+    });
+    const downloadTechTemplateBtn = document.getElementById("downloadTechTemplateBtn");
+    downloadTechTemplateBtn?.addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = "/download/tech-template";
+      a.download = "tech_courses_template.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+
+    const addSchoolCourseBtn = document.getElementById("addSchoolCourseBtn");
+    const schoolCourseFormPanel = document.getElementById("schoolCourseFormPanel");
+    const schoolCourseForm = document.getElementById("schoolCourseForm");
+    const cancelSchoolCourseForm = document.getElementById("cancelSchoolCourseForm");
+    const schoolCoursesList = document.getElementById("schoolCoursesList");
+    const schoolCoursesSearch = document.getElementById("schoolCoursesSearch");
+    function openSchoolCourseForm(data=null){
+      schoolCourseForm.reset();
+      if (data) Object.entries(data).forEach(([k,v])=>{ const el = schoolCourseForm.querySelector(`[name="${k}"]`); if(el) el.value = v||""; });
+      schoolCourseFormPanel.style.display = "block";
+    }
+    function closeSchoolCourseForm(){ schoolCourseFormPanel.style.display = "none"; }
+    addSchoolCourseBtn?.addEventListener("click", ()=>openSchoolCourseForm());
+    cancelSchoolCourseForm?.addEventListener("click", closeSchoolCourseForm);
+    function renderSchoolCourses(items){
+      const q = (schoolCoursesSearch?.value||"").trim();
+      const filtered = q ? items.filter(x => `${x.name||""} ${x.teacher||""}`.includes(q)) : items;
+      schoolCoursesList.innerHTML = "";
+      filtered.forEach(x=>{
+        const c = document.createElement("div");
+        c.className = "card";
+        const hourText = x.hour ? ` | ساعت: ${formatFaNumber(x.hour)}` : "";
+        const sessionsText = (typeof x.sessions_count !== 'undefined') ? ` | جلسات: ${formatFaNumber(x.sessions_count)}` : "";
+        const tuitionText = (typeof x.tuition !== 'undefined') ? ` | شهریه: ${formatFaNumber(x.tuition)}` : "";
+        c.innerHTML = `${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}`;
+        const edit = document.createElement("button");
+        edit.className = "btn btn-secondary";
+        edit.textContent = "ویرایش";
+        edit.style.marginTop = "8px";
+        edit.onclick = ()=>openSchoolCourseForm(x);
+        c.appendChild(edit);
+        schoolCoursesList.appendChild(c);
+      });
+    }
+    schoolCoursesSearch?.addEventListener("input", ()=>renderSchoolCourses(window.schoolCoursesData||[]));
+    async function loadSchoolCourses(){
+      const res = await fetch("/api/courses");
+      const items = await res.json();
+      window.schoolCoursesData = items;
+      renderSchoolCourses(items);
+    }
+    loadSchoolCourses();
+    schoolCourseForm?.addEventListener("submit", async e=>{
+      e.preventDefault();
+      const fd = new FormData(schoolCourseForm);
+      const payload = Object.fromEntries(fd.entries());
+      payload.tuition = Number(String(payload.tuition||"").replace(/[^0-9]/g, "")) || 0;
+      payload.hour = Number(String(payload.hour||"").replace(/[^0-9]/g, "")) || 0;
+      payload.sessions_count = Number(String(payload.sessions_count||"").replace(/[^0-9]/g, "")) || 0;
+      const id = payload.id;
+      let res;
+      try { await fetch("https://33499-il9bs.irann8n.com/webhook/e46e7fbf-e6eb-4008-9516-016957e65d89", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"school_course_submit", payload }) }); } catch {}
+      if(id) res = await fetch(`/api/courses/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+      else res = await fetch("/api/courses", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+      const json = await res.json();
+      showToast(id?"دوره آموزشگاهی به‌روزرسانی شد":"دوره آموزشگاهی اضافه شد", json.ok?"success":"error");
+      closeSchoolCourseForm();
+      loadSchoolCourses();
+    });
+    const importSchoolCoursesBtn = document.getElementById("importSchoolCoursesBtn");
+    const importSchoolFile = document.getElementById("importSchoolFile");
+    importSchoolCoursesBtn?.addEventListener("click", ()=> importSchoolFile?.click());
+    importSchoolFile?.addEventListener("change", async () => {
+      const f = importSchoolFile.files[0];
+      if (!f) return;
+      const fd = new FormData();
+      fd.append("file", f);
+      const res = await fetch("/api/import/courses", { method: "POST", body: fd });
+      const json = await res.json();
+      showToast(json.ok ? "ایمپورت دوره‌های آموزشگاهی انجام شد" : "خطا در ایمپورت", json.ok ? "success" : "error");
+      importSchoolFile.value = "";
+      loadSchoolCourses();
+    });
+    const downloadSchoolTemplateBtn = document.getElementById("downloadSchoolTemplateBtn");
+    downloadSchoolTemplateBtn?.addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = "/download/school-template";
+      a.download = "school_courses_template.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+</script>
+  </body>
+  </html>
