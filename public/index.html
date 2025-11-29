@@ -20,6 +20,7 @@
     .list h3 { margin: 0 0 8px }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px }
     .card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; background: #fafafa }
+    .card .course-banner { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; display:block }
     .actions { display: flex; gap: 8px; margin-top: 8px }
     .rf-container { background:#fff; border:1px solid #e5e7eb; border-radius:18px; overflow:hidden; box-shadow: 0 10px 24px rgba(0,0,0,.08) }
     .rf-header { background:#0c5a98; color:#fff; padding:20px; display:flex; gap:12px; align-items:center }
@@ -95,6 +96,14 @@
               <input name="name" id="rfName" placeholder="اگر خالی باشد ناشناس درج می‌شود" required />
             </div>
             <div class="rf-row">
+              <label>جنسیت</label>
+              <select name="gender" id="rfGender">
+                <option value="">-</option>
+                <option value="male">آقا</option>
+                <option value="female">خانم</option>
+              </select>
+            </div>
+            <div class="rf-row">
               <label>نام دوره</label>
               <div class="rf-multi" id="rfCoursePicker">
                 <div class="rf-multi-display" id="rfCourseDisplay">انتخاب دوره‌ها...</div>
@@ -150,9 +159,6 @@
             <h3 style="margin:0 0 8px; color:#0c5a98">دوره‌های فنی</h3>
             <div style="display:flex; gap:8px; margin-bottom:8px">
               <button id="addTechCourseBtn" class="btn">افزودن دوره فنی</button>
-              <button id="importTechCoursesBtn" class="btn btn-secondary">ایمپورت دوره‌های جدید</button>
-              <button id="downloadTechTemplateBtn" class="btn btn-secondary">دانلود تمپلیت</button>
-              <input id="importTechFile" type="file" accept=".xlsx,.md,.csv" style="display:none" />
             </div>
             <div style="margin-bottom:8px"><input id="techCoursesSearch" placeholder="جستجوی دوره فنی..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
             <div id="techCoursesList" class="grid"></div>
@@ -175,9 +181,6 @@
             <h3 style="margin:0 0 8px; color:#0c5a98">دوره‌های آموزشگاهی</h3>
             <div style="display:flex; gap:8px; margin-bottom:8px">
               <button id="addSchoolCourseBtn" class="btn">افزودن دوره آموزشگاهی</button>
-              <button id="importSchoolCoursesBtn" class="btn btn-secondary">ایمپورت دوره‌های جدید</button>
-              <button id="downloadSchoolTemplateBtn" class="btn btn-secondary">دانلود تمپلیت</button>
-              <input id="importSchoolFile" type="file" accept=".xlsx,.md,.csv" style="display:none" />
             </div>
             <div style="margin-bottom:8px"><input id="schoolCoursesSearch" placeholder="جستجوی دوره آموزشگاهی..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
             <div id="schoolCoursesList" class="grid"></div>
@@ -188,6 +191,7 @@
                 <div class="rf-row"><label>شهریه دوره</label><input name="tuition" id="schoolTuition" /></div>
                 <div class="rf-row"><label>تعداد ساعت کلاس</label><input name="hour" id="schoolHour" /></div>
                 <div class="rf-row"><label>تعداد جلسات</label><input name="sessions_count" id="schoolSessions" /></div>
+                <div class="rf-row"><label>بنر دوره</label><input name="banner_file" id="schoolBannerFile" type="file" accept="image/*" /></div>
                 <input type="hidden" name="id" />
                 <div class="actions">
                   <button type="submit" class="btn">ثبت</button>
@@ -231,6 +235,13 @@
                 <div class="rf-row"><label>نشانی</label><input name="address" /></div>
                 <div class="rf-row"><label>شماره تماس</label><input name="phone" /></div>
                 <div class="rf-row"><label>شماره تماس اضطراری</label><input name="emergency_phone" /></div>
+                <div class="rf-row"><label>جنسیت</label>
+                  <select name="gender">
+                    <option value="">-</option>
+                    <option value="male">آقا</option>
+                    <option value="female">خانم</option>
+                  </select>
+                </div>
                 <input type="hidden" name="id" />
                 <div class="actions">
                   <button type="submit" class="btn">ثبت</button>
@@ -906,6 +917,16 @@
       parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
       return toFaDigits(parts.join("."));
     }
+    async function uploadBannerFile(file, courseId, name){
+      if(!file) return "";
+      const fd = new FormData();
+      fd.append("file", file);
+      if(courseId) fd.append("course_id", courseId);
+      if(name) fd.append("name", name);
+      const res = await fetch("/api/courses/upload-banner", { method:"POST", body: fd });
+      const json = await res.json();
+      return json.ok ? (json.url || "") : "";
+    }
     function renderTechCourses(items){
       const q = (techCoursesSearch?.value||"").trim();
       const filtered = q ? items.filter(x => `${x.name_fa||""} ${x.name_en||""} ${x.code||""}`.includes(q)) : items;
@@ -947,29 +968,7 @@
       closeTechCourseForm();
       loadTechCourses();
     });
-    const importTechCoursesBtn = document.getElementById("importTechCoursesBtn");
-    const importTechFile = document.getElementById("importTechFile");
-    importTechCoursesBtn?.addEventListener("click", ()=> importTechFile?.click());
-    importTechFile?.addEventListener("change", async () => {
-      const f = importTechFile.files[0];
-      if (!f) return;
-      const fd = new FormData();
-      fd.append("file", f);
-      const res = await fetch("/api/import/tech-courses", { method: "POST", body: fd });
-      const json = await res.json();
-      showToast(json.ok ? "ایمپورت دوره‌های فنی انجام شد" : "خطا در ایمپورت", json.ok ? "success" : "error");
-      importTechFile.value = "";
-      loadTechCourses();
-    });
-    const downloadTechTemplateBtn = document.getElementById("downloadTechTemplateBtn");
-    downloadTechTemplateBtn?.addEventListener("click", () => {
-      const a = document.createElement("a");
-      a.href = "/download/tech-template";
-      a.download = "tech_courses_template.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    });
+    
 
     const addSchoolCourseBtn = document.getElementById("addSchoolCourseBtn");
     const schoolCourseFormPanel = document.getElementById("schoolCourseFormPanel");
@@ -995,7 +994,8 @@
         const hourText = x.hour ? ` | ساعت: ${formatFaNumber(x.hour)}` : "";
         const sessionsText = (typeof x.sessions_count !== 'undefined') ? ` | جلسات: ${formatFaNumber(x.sessions_count)}` : "";
         const tuitionText = (typeof x.tuition !== 'undefined') ? ` | شهریه: ${formatFaNumber(x.tuition)}` : "";
-        c.innerHTML = `${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}`;
+        const bannerHtml = x.banner ? `<img class="course-banner" src="${x.banner}" alt="${x.name||""}" />` : "";
+        c.innerHTML = `${bannerHtml}<div>${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}</div>`;
         const edit = document.createElement("button");
         edit.className = "btn btn-secondary";
         edit.textContent = "ویرایش";
@@ -1020,39 +1020,36 @@
       payload.tuition = Number(String(payload.tuition||"").replace(/[^0-9]/g, "")) || 0;
       payload.hour = Number(String(payload.hour||"").replace(/[^0-9]/g, "")) || 0;
       payload.sessions_count = Number(String(payload.sessions_count||"").replace(/[^0-9]/g, "")) || 0;
+      const bannerInput = document.getElementById("schoolBannerFile");
+      const bannerFile = bannerInput?.files?.[0] || null;
       const id = payload.id;
       let res;
       try { await fetch("https://33499-il9bs.irann8n.com/webhook/e46e7fbf-e6eb-4008-9516-016957e65d89", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"school_course_submit", payload }) }); } catch {}
-      if(id) res = await fetch(`/api/courses/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
-      else res = await fetch("/api/courses", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+      if(id){
+        if(bannerFile){
+          const url = await uploadBannerFile(bannerFile, id, payload.name);
+          if(url) payload.banner = url;
+        }
+        res = await fetch(`/api/courses/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+      } else {
+        res = await fetch("/api/courses", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+        const created = await res.json();
+        if(created?.ok){
+          const courseId = created.course?.id || "";
+          if(bannerFile && courseId){
+            const url = await uploadBannerFile(bannerFile, courseId, payload.name);
+            if(url){
+              await fetch(`/api/courses/${courseId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ banner: url })});
+            }
+          }
+        }
+      }
       const json = await res.json();
       showToast(id?"دوره آموزشگاهی به‌روزرسانی شد":"دوره آموزشگاهی اضافه شد", json.ok?"success":"error");
       closeSchoolCourseForm();
       loadSchoolCourses();
     });
-    const importSchoolCoursesBtn = document.getElementById("importSchoolCoursesBtn");
-    const importSchoolFile = document.getElementById("importSchoolFile");
-    importSchoolCoursesBtn?.addEventListener("click", ()=> importSchoolFile?.click());
-    importSchoolFile?.addEventListener("change", async () => {
-      const f = importSchoolFile.files[0];
-      if (!f) return;
-      const fd = new FormData();
-      fd.append("file", f);
-      const res = await fetch("/api/import/courses", { method: "POST", body: fd });
-      const json = await res.json();
-      showToast(json.ok ? "ایمپورت دوره‌های آموزشگاهی انجام شد" : "خطا در ایمپورت", json.ok ? "success" : "error");
-      importSchoolFile.value = "";
-      loadSchoolCourses();
-    });
-    const downloadSchoolTemplateBtn = document.getElementById("downloadSchoolTemplateBtn");
-    downloadSchoolTemplateBtn?.addEventListener("click", () => {
-      const a = document.createElement("a");
-      a.href = "/download/school-template";
-      a.download = "school_courses_template.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    });
+    
 </script>
   </body>
   </html>

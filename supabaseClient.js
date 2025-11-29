@@ -1,31 +1,48 @@
 import { createClient } from "@supabase/supabase-js";
 
-function findEnv(part) {
-  for (const k of Object.keys(process.env)) {
-    if (k.toLowerCase().includes(part.toLowerCase())) return process.env[k] || "";
+function pick(keys) {
+  for (const k of keys) {
+    const v = process.env[k];
+    if (v) return { key: k, value: v };
   }
-  return "";
+  for (const k of Object.keys(process.env)) {
+    if (keys.some(p => k.toLowerCase().includes(p.toLowerCase()))) {
+      const v = process.env[k];
+      if (v) return { key: k, value: v };
+    }
+  }
+  return { key: "", value: "" };
 }
 
-const url =
-  process.env.SUPABASE_URL ||
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.Mehryar_Auto_SUPABASE_URL ||
-  process.env.NEXT_PUBLIC_Mehryar_Auto_SUPABASE_URL ||
-  findEnv("SUPABASE_URL");
+const urlPick = pick([
+  "SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "Mehryar_Auto_SUPABASE_URL",
+  "NEXT_PUBLIC_Mehryar_Auto_SUPABASE_URL"
+]);
 
-const serviceKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.Mehryar_Auto_SUPABASE_SERVICE_ROLE_KEY ||
-  findEnv("SUPABASE_SERVICE_ROLE_KEY");
+const servicePick = pick([
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "Mehryar_Auto_SUPABASE_SERVICE_ROLE_KEY"
+]);
 
-const anonKey =
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.Mehryar_Auto_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_Mehryar_Auto_SUPABASE_ANON_KEY ||
-  findEnv("SUPABASE_ANON_KEY");
+const anonPick = pick([
+  "SUPABASE_ANON_KEY",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "Mehryar_Auto_SUPABASE_ANON_KEY",
+  "NEXT_PUBLIC_Mehryar_Auto_SUPABASE_ANON_KEY"
+]);
 
-const key = serviceKey || anonKey || "";
+const url = urlPick.value;
+const key = servicePick.value || anonPick.value;
 const enabled = !!url && !!key;
+
+export const supabaseInfo = {
+  enabled,
+  urlPresent: !!url,
+  keyPresent: !!key,
+  urlKey: urlPick.key,
+  keyKey: servicePick.key || anonPick.key
+};
+
 export const supabase = enabled ? createClient(url, key, { auth: { persistSession: false } }) : null;

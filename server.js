@@ -3,7 +3,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { supabase } from "./supabaseClient.js";
+import { supabase, supabaseInfo } from "./supabaseClient.js";
 import multer from "multer";
 import XLSX from "xlsx";
 dotenv.config();
@@ -80,6 +80,7 @@ app.post("/api/applicants", async (req, res) => {
     name: body.name || "",
     phone: body.phone || "",
     email: body.email || "",
+    gender: body.gender || "",
     course: body.course || "",
     familiarity: body.familiarity || "",
     note: body.note || "",
@@ -114,6 +115,7 @@ app.put("/api/applicants/:id", async (req, res) => {
     name: body.name,
     phone: body.phone,
     email: body.email,
+    gender: body.gender,
     course: body.course,
     familiarity: body.familiarity,
     note: body.note,
@@ -316,6 +318,15 @@ app.get("/api/health/details", async (req, res) => {
     return res.json({ enabled: true, hasUrl, hasServiceRole, hasAnon, error: true });
   }
 });
+app.get("/api/health/env", (req, res) => {
+  res.json({
+    enabled: supabaseInfo.enabled,
+    urlPresent: supabaseInfo.urlPresent,
+    keyPresent: supabaseInfo.keyPresent,
+    urlKey: supabaseInfo.urlKey,
+    keyKey: supabaseInfo.keyKey
+  });
+});
 app.get("/api/calendar/events", (req, res) => {
   res.json([]);
 });
@@ -337,6 +348,7 @@ app.post("/api/students", async (req, res) => {
     created_at: new Date().toISOString(),
     name: b.name || "",
     last_name: b.last_name || "",
+    gender: b.gender || "",
     father_name: b.father_name || "",
     national_id: b.national_id || "",
     address: b.address || "",
@@ -364,6 +376,7 @@ app.put("/api/students/:id", async (req, res) => {
     const { data, error } = await supabase.from("students").update({
       name: b.name,
       last_name: b.last_name,
+      gender: b.gender,
       father_name: b.father_name,
       national_id: b.national_id,
       address: b.address,
@@ -386,8 +399,8 @@ app.put("/api/students/:id", async (req, res) => {
 });
 app.get("/api/courses", async (req, res) => {
   if (supabase) {
-    const { data, error } = await supabase.from("courses").select("id,name,teacher,tuition,hour,sessions_count,banner").order("name", { ascending: true });
-    if (error) return res.status(500).json({ ok: false });
+    const { data, error } = await supabase.from("courses").select("*").order("name", { ascending: true });
+    if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json(data || []);
   }
   res.json([
@@ -398,6 +411,7 @@ app.get("/api/courses", async (req, res) => {
 app.post("/api/courses", async (req, res) => {
   const b = req.body || {};
   const item = { id: Date.now().toString(), created_at: new Date().toISOString(), name: b.name || "", teacher: b.teacher || "", tuition: Number(b.tuition || 0), hour: b.hour || "", sessions_count: Number(b.sessions_count || 0) };
+  if (b.banner) item.banner = b.banner;
   if (supabase) {
     const { data, error } = await supabase.from("courses").insert([item]).select("*").single();
     if (error) return res.status(500).json({ ok: false });
@@ -409,7 +423,7 @@ app.put("/api/courses/:id", async (req, res) => {
   const id = req.params.id;
   const b = req.body || {};
   if (supabase) {
-    const { data, error } = await supabase.from("courses").update({ name: b.name, teacher: b.teacher, tuition: Number(b.tuition || 0), hour: b.hour || "", sessions_count: Number(b.sessions_count || 0) }).eq("id", id).select("*").single();
+    const { data, error } = await supabase.from("courses").update({ name: b.name, teacher: b.teacher, tuition: Number(b.tuition || 0), hour: b.hour || "", sessions_count: Number(b.sessions_count || 0), banner: b.banner }).eq("id", id).select("*").single();
     if (error) return res.status(500).json({ ok: false });
     return res.json({ ok: true, course: data });
   }
@@ -418,10 +432,42 @@ app.put("/api/courses/:id", async (req, res) => {
 app.get("/api/tech-courses", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("tech_courses").select("*").order("created_at", { ascending: false });
-    if (error) return res.status(500).json({ ok: false });
+    if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json(data || []);
   }
   res.json([]);
+});
+
+async function ensureBucket(name){
+  if (!supabase) return { ok:false };
+  try { await supabase.storage.createBucket(name, { public: true }); } catch {}
+  return { ok:true };
+}
+function slugify(str){
+  return String(str||"")
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06FF]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+app.post("/api/courses/upload-banner", upload.single("file"), async (req, res) => {
+  if (!supabase) return res.status(500).json({ ok:false });
+  const file = req.file;
+  const courseId = req.body.course_id || "";
+  const courseName = req.body.name || "";
+  if (!file) return res.status(400).json({ ok:false, error:"no_file" });
+  await ensureBucket("course-banners");
+  const ext = (file.originalname.split(".").pop()||"jpg").toLowerCase();
+  const base = courseId ? courseId : slugify(courseName) || Date.now().toString();
+  const key = `${base}_${Date.now()}.${ext}`;
+  const { data: up, error: upErr } = await supabase.storage.from("course-banners").upload(key, file.buffer, { contentType: file.mimetype, upsert: true });
+  if (upErr) return res.status(500).json({ ok:false, error: upErr.message });
+  const { data: pub } = await supabase.storage.from("course-banners").getPublicUrl(key);
+  const url = (pub && (pub.publicUrl || pub.public_url)) || "";
+  if (courseId) {
+    await supabase.from("courses").update({ banner: url }).eq("id", courseId);
+  }
+  return res.json({ ok:true, url, path: up?.path || key });
 });
 app.post("/api/tech-courses", async (req, res) => {
   const b = req.body || {};
@@ -534,7 +580,7 @@ app.post("/api/import/courses", upload.single("file"), async (req, res) => {
     sessions_count: normalizeInt(r["تعداد جلسات"] || r.sessions_count)
   }));
   if (supabase) {
-    const { data, error } = await supabase.from("courses").upsert(mapped, { onConflict: "name" });
+    const { data, error } = await supabase.from("courses").upsert(mapped, { onConflict: "id" });
     if (error) return res.status(500).json({ ok: false });
     return res.json({ ok: true, count: (data || mapped).length });
   }
