@@ -4,9 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>مهر یار - دستیار هوشمند آموزشگاه مهرابتکار</title>
+  <link rel="icon" type="image/png" href="/mehrab-logo.png" />
   <link rel="icon" type="image/svg+xml" href="/mehryar-logo.svg" />
   <style>
-    body { font-family: Vazirmatn, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b4f84; color: #222; direction: rtl }
+    @font-face {
+      font-family: 'Yekan';
+      font-style: normal;
+      font-weight: 400;
+      src: url('/fonts/yekan.woff2') format('woff2'),
+           url('/fonts/yekan.woff') format('woff');
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Yekan';
+      font-style: normal;
+      font-weight: 700;
+      src: url('/fonts/yekan-bold.woff2') format('woff2'),
+           url('/fonts/yekan-bold.woff') format('woff');
+      font-display: swap;
+    }
+    body { font-family: 'Yekan', Vazirmatn, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b4f84; color: #222; direction: rtl }
+    button, input, select, textarea { font-family: inherit }
     header { background: transparent; color: #fff; padding: 20px 0 }
     .brand { display:flex; align-items:center; gap:12px }
     .brand img { width:48px; height:48px; border-radius:50%; background:#fff }
@@ -68,7 +86,7 @@
   <header>
     <div class="container">
       <div class="brand">
-        <img src="/mehryar-logo.svg" alt="MehrYar" />
+        <img src="/mehrab-logo.png" alt="MehrYar" onerror="this.src='/mehryar-logo.svg'" />
         <div class="brand-title">مهر یار - دستیار هوشمند آموزشگاه مهرابتکار</div>
       </div>
     </div>
