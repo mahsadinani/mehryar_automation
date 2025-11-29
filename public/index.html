@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>سیستم مدیریت آموزشی و مالی</title>
+  <title>مهر یار - دستیار هوشمند آموزشگاه مهرابتکار</title>
+  <link rel="icon" type="image/svg+xml" href="/mehryar-logo.svg" />
   <style>
     body { font-family: Vazirmatn, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b4f84; color: #222; direction: rtl }
     header { background: transparent; color: #fff; padding: 20px 0 }
+    .brand { display:flex; align-items:center; gap:12px }
+    .brand img { width:48px; height:48px; border-radius:50%; background:#fff }
+    .brand-title { font-size:22px; font-weight:800 }
     nav { display: flex; gap: 8px; padding: 12px; background: #fff; position: sticky; top: 0; border-bottom: 1px solid #e5e7eb }
     nav button { padding: 8px 12px; border: 1px solid #d1d5db; background: #fff; cursor: pointer; border-radius: 6px }
     nav button.active { background: #2f3e9e; color: #fff; border-color: #2f3e9e }
@@ -63,7 +67,10 @@
 <body>
   <header>
     <div class="container">
-      <h1>سیستم مدیریت آموزشی و مالی</h1>
+      <div class="brand">
+        <img src="/mehryar-logo.svg" alt="MehrYar" />
+        <div class="brand-title">مهر یار - دستیار هوشمند آموزشگاه مهرابتکار</div>
+      </div>
     </div>
   </header>
   <nav id="tabs" class="container"></nav>
