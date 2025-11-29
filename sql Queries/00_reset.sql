@@ -1,0 +1,10 @@
+drop table if exists attendance;
+drop table if exists transactions;
+drop table if exists student_finance_profiles;
+drop table if exists classes;
+drop table if exists applicants;
+drop table if exists students;
+drop table if exists tech_courses;
+drop table if exists courses;
+drop table if exists leads;
+drop table if exists data_links;

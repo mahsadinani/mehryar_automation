@@ -1,4 +1,3 @@
--- Insert/Upsert آموزشگاهی (from پاییز 1404 list)
 insert into courses (id, name, teacher, tuition, hour, sessions_count)
 values
 ('EDU-1','کاربر ICDL','آقایان حیاتی و رئیسه، خانم مرادی',7740000,'36',12),

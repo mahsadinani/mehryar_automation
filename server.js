@@ -166,7 +166,6 @@ app.post("/api/classes", async (req, res) => {
     title: b.title || "",
     teacher: b.teacher || "",
     start: b.start || null,
-    end: b.end || null,
     room: b.room || "",
     code: b.code || "",
     time: b.time || "",
@@ -294,6 +293,28 @@ app.get("/api/health/supabase", async (req, res) => {
   if (!supabase) return res.json({ enabled: false, hasUrl, hasKey });
   const { error, count } = await supabase.from("applicants").select("id", { count: "exact" }).limit(1);
   return res.json({ enabled: true, ok: !error, count: count || 0 });
+});
+app.get("/api/health/details", async (req, res) => {
+  const hasUrl = !!process.env.SUPABASE_URL;
+  const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const hasAnon = !!process.env.SUPABASE_ANON_KEY;
+  if (!supabase) return res.json({ enabled: false, hasUrl, hasServiceRole, hasAnon });
+  try {
+    const [{ count: coursesCount }, { count: techCount }, { count: studentsCount }] = await Promise.all([
+      supabase.from("courses").select("id", { count: "exact" }).limit(1),
+      supabase.from("tech_courses").select("id", { count: "exact" }).limit(1),
+      supabase.from("students").select("id", { count: "exact" }).limit(1)
+    ]);
+    return res.json({
+      enabled: true,
+      hasUrl,
+      hasServiceRole,
+      hasAnon,
+      tables: { courses: coursesCount || 0, tech_courses: techCount || 0, students: studentsCount || 0 }
+    });
+  } catch (e) {
+    return res.json({ enabled: true, hasUrl, hasServiceRole, hasAnon, error: true });
+  }
 });
 app.get("/api/calendar/events", (req, res) => {
   res.json([]);
