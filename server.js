@@ -177,12 +177,14 @@ app.get("/api/classes", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("classes").select("*").order("start", { ascending: true });
     if (error) return res.status(500).json({ ok: false });
-    return res.json(data || []);
+    const norm = (arr) => (Array.isArray(arr) ? arr : (typeof arr === "string" ? (arr ? JSON.parse(arr) : []) : []));
+    const out = (data || []).map(c => ({ ...c, students: norm(c.students), sessions: Array.isArray(c.sessions) ? c.sessions : (typeof c.sessions === "string" ? (c.sessions ? JSON.parse(c.sessions) : []) : []) }));
+    return res.json(out);
   }
   if (state.classes.length === 0) {
     state.classes = [
-      { id: "c1", title: "دوره مقدماتی", teacher: "مدرس A", start: "2025-12-01T08:00:00Z" },
-      { id: "c2", title: "دوره پیشرفته", teacher: "مدرس B", start: "2025-12-02T10:00:00Z" }
+      { id: "c1", title: "دوره مقدماتی", teacher: "مدرس A", start: "2025-12-01T08:00:00Z", students: [], sessions: [] },
+      { id: "c2", title: "دوره پیشرفته", teacher: "مدرس B", start: "2025-12-02T10:00:00Z", students: [], sessions: [] }
     ];
   }
   res.json(state.classes);
@@ -208,11 +210,10 @@ app.post("/api/classes", async (req, res) => {
     tech_course_code: b.tech_course_code || ""
   };
   if (supabase) {
-    const dbItem = { ...item };
-    delete dbItem.students;
-    const { data, error } = await supabase.from("classes").insert([dbItem]).select("*").single();
+    const { data, error } = await supabase.from("classes").insert([item]).select("*").single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true, cls: data });
+    const normStudents = Array.isArray(data?.students) ? data.students : (typeof data?.students === "string" ? (data.students ? JSON.parse(data.students) : []) : []);
+    return res.json({ ok: true, cls: { ...data, students: normStudents } });
   }
   state.classes.push(item);
   res.json({ ok: true, cls: item });
@@ -232,14 +233,15 @@ app.put("/api/classes/:id", async (req, res) => {
       days: Array.isArray(b.days) ? b.days.join(",") : b.days,
       sessions_count: Number(b.sessions_count || 0),
       sessions: b.sessions,
+      students: Array.isArray(b.students) ? b.students : [],
       end_date: b.end_date,
       certificate_issue_date: b.certificate_issue_date,
       tech_course_code: b.tech_course_code
     };
-    delete updateObj.students;
     const { data, error } = await supabase.from("classes").update(updateObj).eq("id", id).select("*").single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true, cls: data });
+    const normStudents = Array.isArray(data?.students) ? data.students : (typeof data?.students === "string" ? (data.students ? JSON.parse(data.students) : []) : []);
+    return res.json({ ok: true, cls: { ...data, students: normStudents } });
   }
   res.json({ ok: true });
 });
