@@ -406,7 +406,13 @@ app.get("/api/finance/student-profiles", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("student_finance_profiles").select("*").order("created_at", { ascending: false });
     if (error) return res.status(500).json({ ok: false });
-    return res.json(data || []);
+    const normInst = (v) => {
+      if (Array.isArray(v)) return v;
+      if (typeof v === "string") { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+      return [];
+    };
+    const out = (data || []).map(p => ({ ...p, installments: normInst(p.installments) }));
+    return res.json(out);
   }
   res.json(state.studentFinanceProfiles);
 });
@@ -452,8 +458,10 @@ app.post("/api/finance/student-profiles", async (req, res) => {
       const { data, error } = await supabase.from("student_finance_profiles").insert([payload]).select("*").maybeSingle();
       if (!error) {
         const out = data || (Array.isArray(data) ? data[0] : data);
-        sendWebhooks("finance.profile.create", out).catch(()=>{});
-        return res.json({ ok: true, profile: out, warnings: Object.keys(removed).length ? { removed_columns: Object.keys(removed) } : undefined });
+        const normInst = (v) => { if (Array.isArray(v)) return v; if (typeof v === "string") { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } } return []; };
+        const out2 = { ...out, installments: normInst(out.installments) };
+        sendWebhooks("finance.profile.create", out2).catch(()=>{});
+        return res.json({ ok: true, profile: out2, warnings: Object.keys(removed).length ? { removed_columns: Object.keys(removed) } : undefined });
       }
       const msg = String(error.message||"");
       const m1 = msg.match(/Could not find the '([^']+)' column/i);
@@ -487,8 +495,10 @@ app.put("/api/finance/student-profiles/:id", async (req, res) => {
       const { data, error } = await supabase.from("student_finance_profiles").update(payload).eq("id", id).select("*").maybeSingle();
       if (!error) {
         const out = data || (Array.isArray(data) ? data[0] : data);
-        sendWebhooks("finance.profile.update", out).catch(()=>{});
-        return res.json({ ok: true, profile: out, warnings: Object.keys(removed).length ? { removed_columns: Object.keys(removed) } : undefined });
+        const normInst = (v) => { if (Array.isArray(v)) return v; if (typeof v === "string") { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } } return []; };
+        const out2 = { ...out, installments: normInst(out.installments) };
+        sendWebhooks("finance.profile.update", out2).catch(()=>{});
+        return res.json({ ok: true, profile: out2, warnings: Object.keys(removed).length ? { removed_columns: Object.keys(removed) } : undefined });
       }
       const msg = String(error.message||"");
       const m1 = msg.match(/Could not find the '([^']+)' column/i);
