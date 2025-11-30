@@ -155,6 +155,17 @@ app.put("/api/applicants/:id", async (req, res) => {
   }
   res.status(404).json({ ok: false });
 });
+app.delete("/api/applicants/:id", async (req, res) => {
+  const id = req.params.id;
+  if (supabase) {
+    const { error } = await supabase.from("applicants").delete().eq("id", id);
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true });
+  }
+  const idx = state.applicants.findIndex(a => a.id === id);
+  if (idx >= 0) { state.applicants.splice(idx, 1); return res.json({ ok: true }); }
+  res.status(404).json({ ok: false });
+});
 app.post("/api/pre-register", (req, res) => {
   const body = req.body || {};
   const amount = Number(body.amount || 0);
