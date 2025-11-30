@@ -687,11 +687,11 @@
         addBtn.className = "btn btn-secondary";
         addBtn.textContent = "افزودن به لیست شاگردان";
         addBtn.onclick = async () => {
-          const payload = { name: x.name||"", phone: x.phone||"", status: "active" };
+          const payload = { name: (x.name||"").trim() || "ناشناس", phone: (x.phone||"").trim(), status: "active" };
           try {
             const res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-            const json = await res.json();
-            showToast(json.ok ? "شاگرد اضافه شد" : "خطا در افزودن", json.ok ? "success" : "error");
+            const json = await res.json().catch(() => ({ ok:false }));
+            showToast(json.ok ? "شاگرد اضافه شد" : `خطا در افزودن${json?.error?`: ${json.error}`:""}`, json.ok ? "success" : "error");
           } catch { showToast("خطا در اتصال", "error"); }
         };
         const editBtn = document.createElement("button");

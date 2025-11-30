@@ -390,7 +390,7 @@ app.post("/api/students", async (req, res) => {
   if (nidRaw.length === 10) item.student_id = nidRaw.replace(/^0+/, "");
   if (supabase) {
     const { data, error } = await supabase.from("students").insert([item]).select("*").single();
-    if (error) return res.status(500).json({ ok: false });
+    if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, student: data });
   }
   state.students.push(item);
@@ -414,7 +414,7 @@ app.put("/api/students/:id", async (req, res) => {
       issuer: b.issuer,
       status: b.status
     }).eq("id", id).select("*").single();
-    if (error) return res.status(500).json({ ok: false });
+    if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, student: data });
   }
   const idx = state.students.findIndex(s => s.id === id);
