@@ -1488,6 +1488,10 @@
       const res = await fetch("/api/finance/student-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (json?.ok) { await postWebhook("student_finance_submit", json.profile || payload); }
+      const warnText = (() => {
+        const cols = json?.warnings?.removed_columns;
+        return (Array.isArray(cols) && cols.length) ? ` هشدار: فیلدهای ناموجود حذف شدند: ${cols.join(", ")}` : "";
+      })();
       const errText = (() => {
         if (json?.errors) {
           const entries = Object.entries(json.errors);
@@ -1495,7 +1499,7 @@
         }
         return json?.message || "";
       })();
-      showToast(json.ok ? "پروفایل مالی ثبت شد" : (`خطا در ثبت پروفایل${errText?`: ${errText}`:""}`), json.ok ? "success" : "error");
+      showToast(json.ok ? (`پروفایل مالی ثبت شد${warnText}`) : (`خطا در ثبت پروفایل${errText?`: ${errText}`:""}`), json.ok ? "success" : "error");
       closeStudentFinanceForm();
       loadStudentFinance();
     });

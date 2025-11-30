@@ -440,10 +440,23 @@ app.post("/api/finance/student-profiles", async (req, res) => {
     status: b.status || "در انتظار تسویه"
   };
   if (supabase) {
-    const { data, error } = await supabase.from("student_finance_profiles").insert([item]).select("*").single();
-    if (error) return res.status(500).json({ ok: false, error: "db_error", message: error.message });
-    sendWebhooks("finance.profile.create", data).catch(()=>{});
-    return res.json({ ok: true, profile: data });
+    let payload = { ...item };
+    const removed = {};
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const { data, error } = await supabase.from("student_finance_profiles").insert([payload]).select("*").maybeSingle();
+      if (!error) {
+        const out = data || (Array.isArray(data) ? data[0] : data);
+        sendWebhooks("finance.profile.create", out).catch(()=>{});
+        return res.json({ ok: true, profile: out, warnings: Object.keys(removed).length ? { removed_columns: Object.keys(removed) } : undefined });
+      }
+      const msg = String(error.message||"");
+      const m1 = msg.match(/Could not find the '([^']+)' column/i);
+      const m2 = msg.match(/column\s+"([^"]+)"\s+does not exist/i);
+      const missing = (m1 && m1[1]) || (m2 && m2[1]);
+      if (missing && payload[missing] !== undefined) { removed[missing] = payload[missing]; delete payload[missing]; continue; }
+      return res.status(500).json({ ok: false, error: "db_error", message: error.message });
+    }
+    return res.status(500).json({ ok: false, error: "schema_mismatch" });
   }
   state.studentFinanceProfiles.push(item);
   sendWebhooks("finance.profile.create", item).catch(()=>{});
@@ -453,17 +466,30 @@ app.put("/api/finance/student-profiles/:id", async (req, res) => {
   const id = req.params.id;
   const b = req.body || {};
   if (supabase) {
-    const { data, error } = await supabase.from("student_finance_profiles").update({
+    let payload = {
       student_id: b.student_id,
       class_code: b.class_code,
       upfront_amount: Number(b.upfront_amount || 0),
       upfront_date: b.upfront_date || null,
       installments: Array.isArray(b.installments) ? b.installments : [],
       status: b.status
-    }).eq("id", id).select("*").single();
-    if (error) return res.status(500).json({ ok: false });
-    sendWebhooks("finance.profile.update", data).catch(()=>{});
-    return res.json({ ok: true, profile: data });
+    };
+    const removed = {};
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const { data, error } = await supabase.from("student_finance_profiles").update(payload).eq("id", id).select("*").maybeSingle();
+      if (!error) {
+        const out = data || (Array.isArray(data) ? data[0] : data);
+        sendWebhooks("finance.profile.update", out).catch(()=>{});
+        return res.json({ ok: true, profile: out, warnings: Object.keys(removed).length ? { removed_columns: Object.keys(removed) } : undefined });
+      }
+      const msg = String(error.message||"");
+      const m1 = msg.match(/Could not find the '([^']+)' column/i);
+      const m2 = msg.match(/column\s+"([^"]+)"\s+does not exist/i);
+      const missing = (m1 && m1[1]) || (m2 && m2[1]);
+      if (missing && payload[missing] !== undefined) { removed[missing] = payload[missing]; delete payload[missing]; continue; }
+      return res.status(500).json({ ok: false, error: "db_error", message: error.message });
+    }
+    return res.status(500).json({ ok: false, error: "schema_mismatch" });
   }
   const idx = state.studentFinanceProfiles.findIndex(p => p.id === id);
   if (idx >= 0) {
@@ -658,10 +684,12 @@ app.post("/api/courses", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("courses").insert([item]).select("*").single();
     if (error) return res.status(500).json({ ok: false });
+    sendWebhooks("course.create", data).catch(()=>{});
     return res.json({ ok: true, course: data });
   }
   state.courses = state.courses || [];
   state.courses.push(item);
+  sendWebhooks("course.create", item).catch(()=>{});
   res.json({ ok: true, course: item });
 });
 app.put("/api/courses/:id", async (req, res) => {
@@ -677,12 +705,14 @@ app.put("/api/courses/:id", async (req, res) => {
     if (b.banner !== undefined) updateObj.banner = b.banner;
     const { data, error } = await supabase.from("courses").update(updateObj).eq("id", id).select("*").single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("course.update", data).catch(()=>{});
     return res.json({ ok: true, course: data });
   }
   state.courses = state.courses || [];
   const idx = state.courses.findIndex(c => c.id === id);
   if (idx >= 0) {
     state.courses[idx] = { ...state.courses[idx], ...b, tuition: (b.tuition!==undefined?Number(b.tuition||0):state.courses[idx].tuition), sessions_count: (b.sessions_count!==undefined?Number(b.sessions_count||0):state.courses[idx].sessions_count) };
+    sendWebhooks("course.update", state.courses[idx]).catch(()=>{});
     return res.json({ ok: true, course: state.courses[idx] });
   }
   res.status(404).json({ ok: false });
@@ -692,10 +722,11 @@ app.delete("/api/courses/:id", async (req, res) => {
   if (supabase) {
     const { error } = await supabase.from("courses").delete().eq("id", id);
     if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("course.delete", { id }).catch(()=>{});
     return res.json({ ok: true });
   }
   const idx = state.courses?.findIndex?.(c => c.id === id) ?? -1;
-  if (idx >= 0) { state.courses.splice(idx, 1); return res.json({ ok: true }); }
+  if (idx >= 0) { state.courses.splice(idx, 1); sendWebhooks("course.delete", { id }).catch(()=>{}); return res.json({ ok: true }); }
   res.status(404).json({ ok: false });
 });
 app.delete("/api/students/:id", async (req, res) => {
@@ -715,6 +746,7 @@ app.delete("/api/tech-courses/:id", async (req, res) => {
   if (supabase) {
     const { error } = await supabase.from("tech_courses").delete().eq("id", id);
     if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("tech_course.delete", { id }).catch(()=>{});
     return res.json({ ok: true });
   }
   res.json({ ok: true });
@@ -780,6 +812,7 @@ app.post("/api/tech-courses", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("tech_courses").insert([item]).select("*").single();
     if (error) return res.status(500).json({ ok: false });
+    sendWebhooks("tech_course.create", data).catch(()=>{});
     return res.json({ ok: true, course: data });
   }
   res.json({ ok: true, course: item });
@@ -790,6 +823,7 @@ app.put("/api/tech-courses/:id", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("tech_courses").update({ name_fa: b.name_fa, name_en: b.name_en, tuition: Number(b.tuition || 0), code: b.code, hours: Number(b.hours || 0) }).eq("id", id).select("*").single();
     if (error) return res.status(500).json({ ok: false });
+    sendWebhooks("tech_course.update", data).catch(()=>{});
     return res.json({ ok: true, course: data });
   }
   res.json({ ok: true });
