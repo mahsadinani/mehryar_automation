@@ -1286,7 +1286,7 @@
           const titleEl = document.getElementById("studentsModalTitle");
           const bodyEl = document.getElementById("studentsModalBody");
           document.getElementById("studentsModalClose")?.addEventListener("click", () => { modal.style.display = "none"; bodyEl.innerHTML = ""; }, { once: true });
-          const ids = Array.isArray(x.students)?x.students:[];
+          const ids = Array.isArray(x.students) ? x.students : (typeof x.students === "string" ? (x.students ? JSON.parse(x.students) : []) : []);
           titleEl.textContent = `شاگردان کلاس: ${x.title||x.code||""}`;
           bodyEl.innerHTML = "";
           const res = await fetch("/api/students"); const all = await res.json();
@@ -1324,14 +1324,15 @@
     async function renderAttendanceClasses(){
       const res = await fetch("/api/classes"); const classes = await res.json();
       attClass.innerHTML = "";
-      classes.forEach(c => { const opt = document.createElement("option"); opt.value = c.id || c.code || ""; opt.textContent = `${c.title||""} | ${c.code||""}`; opt.dataset.sessions = JSON.stringify(c.sessions||[]); opt.dataset.students = JSON.stringify(c.students||[]); attClass.appendChild(opt); });
+      classes.forEach(c => { const opt = document.createElement("option"); opt.value = c.id || c.code || ""; opt.textContent = `${c.title||""} | ${c.code||""}`; opt.dataset.sessions = JSON.stringify(c.sessions||[]); opt.dataset.students = (typeof c.students === "string" ? c.students : JSON.stringify(c.students||[])); attClass.appendChild(opt); });
       renderAttendanceGrid();
     }
     function renderAttendanceGrid(){
       attGrid.innerHTML = "";
       const sel = attClass.selectedOptions[0]; if (!sel) return;
       const sessions = JSON.parse(sel.dataset.sessions||"[]");
-      const studentsIds = JSON.parse(sel.dataset.students||"[]");
+      const studentsIdsRaw = sel.dataset.students||"[]";
+      const studentsIds = (() => { try { const parsed = JSON.parse(studentsIdsRaw); return Array.isArray(parsed) ? parsed : []; } catch { return []; } })();
       const header = document.createElement("div"); header.className = "rf-row"; header.textContent = `جلسات: ${sessions.map(s=>s.index).join(", ")}`; attGrid.appendChild(header);
       Promise.resolve(fetch("/api/students").then(r=>r.json())).then(students => {
         const map = new Map(students.map(s => [s.id, s]));
