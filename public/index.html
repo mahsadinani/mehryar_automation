@@ -178,6 +178,44 @@
         </div>
     </section>
 
+    <section id="TeachersForm" class="rf">
+      <div class="rf-container">
+        <div class="rf-header">
+          <div class="rf-header-icon"></div>
+          <div>
+            <h2>مدرسین</h2>
+            <p>مدیریت لیست مدرسین</p>
+          </div>
+        </div>
+        <div class="rf-grid">
+          <div class="rf-status">
+            <button id="addTeacherBtn" class="btn">افزودن مدرس جدید</button>
+          </div>
+          <div class="rf-fields">
+            <div class="list">
+              <h3>لیست مدرسین</h3>
+              <div style="margin-bottom:8px"><input id="teachersSearch" placeholder="جستجو مدرس..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+              <div id="teachersList" class="grid"></div>
+            </div>
+            <div id="teacherFormPanel" style="display:none; margin-top:12px">
+              <form id="teacherForm">
+                <div class="rf-row"><label>نام</label><input name="name" required /></div>
+                <div class="rf-row"><label>شماره تماس</label><input name="phone" /></div>
+                <div class="rf-row"><label>کد ملی</label><input name="national_id" /></div>
+                <div class="rf-row"><label>دوره‌های قابل تدریس</label><input name="skills" placeholder="متن آزاد" /></div>
+                <div class="rf-row"><label>توضیحات</label><input name="note" /></div>
+                <input type="hidden" name="id" />
+                <div class="actions">
+                  <button type="submit" class="btn">ثبت</button>
+                  <button type="button" id="cancelTeacherForm" class="btn btn-secondary">انصراف</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="CoursesForm" class="rf">
       <div class="rf-container">
         <div class="rf-header">
@@ -303,8 +341,18 @@
           <div class="rf-row"><label>تاریخ شروع کلاس</label><input name="start" type="date" /></div>
           <div class="rf-row"><label>تاریخ پایان دوره</label><input name="end_date" type="date" /></div>
           <div class="rf-row"><label>تاریخ صدور مدرک</label><input name="certificate_issue_date" type="date" /></div>
-          <div class="rf-row"><label>مدرس</label><input name="teacher" /></div>
-          <div class="rf-row"><label>ساعت کلاس</label><input name="time" /></div>
+          <div class="rf-row"><label>مدرس</label>
+            <div style="display:flex; gap:8px; align-items:center">
+              <select name="teacher" id="clsTeacher"></select>
+              <button type="button" id="openAddTeacherBtn" class="btn btn-secondary">افزودن مدرس جدید</button>
+            </div>
+          </div>
+          <div class="rf-row"><label>ساعت کلاس</label>
+            <div style="display:flex; gap:8px; align-items:center">
+              <input id="clsTimeFrom" placeholder="از" />
+              <input id="clsTimeTo" placeholder="تا" />
+            </div>
+          </div>
           <div class="rf-row"><label>روزهای برگزاری</label>
             <div id="clsDays" style="display:flex; gap:8px; flex-wrap:wrap">
               <label><input type="checkbox" value="شنبه" /> شنبه</label>
@@ -322,6 +370,7 @@
           </div>
           <div class="rf-row"><label>جلسات</label>
             <div id="clsSessions" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px"></div>
+            <div class="actions"><button type="button" id="addMakeupSession" class="btn btn-secondary">افزودن جلسه جبرانی</button></div>
           </div>
           <div class="actions">
             <button type="submit" class="btn">ثبت کلاس</button>
@@ -441,8 +490,10 @@
     const tabs = [
       { id: "ApplicantsForm", label: "فرم ورودی" },
       { id: "PreRegistrationForm", label: "لیست شاگردان" },
+      { id: "ClassesDashboard", label: "کلاس‌ها" },
       { id: "FinanceDashboard", label: "مالی" },
       { id: "CoursesForm", label: "دوره‌ها" },
+      { id: "TeachersForm", label: "مدرسین" },
       { id: "CertIssuance", label: "صدور گواهینامه" }
     ];
     const nav = document.getElementById("tabs");
@@ -861,7 +912,7 @@
     const classForm = document.getElementById("classForm");
     const cancelClassForm = document.getElementById("cancelClassForm");
     const classesSearch = document.getElementById("classesSearch");
-    function openClassForm(){ classForm.reset(); classFormPanel.style.display = "block"; renderSessionBoxes(); }
+    function openClassForm(){ classForm.reset(); classFormPanel.style.display = "block"; renderSessionBoxes(); loadTeacherOptions(); }
     function closeClassForm(){ classFormPanel.style.display = "none"; }
     addClassBtn.addEventListener("click", openClassForm);
     cancelClassForm.addEventListener("click", closeClassForm);
@@ -880,30 +931,68 @@
       }
     }
     loadCourseOptions();
+    const clsTeacher = document.getElementById("clsTeacher");
+    async function loadTeacherOptions(){
+      const res = await fetch("/api/teachers");
+      const items = await res.json();
+      if (!clsTeacher) return;
+      clsTeacher.innerHTML = "";
+      items.forEach(t => { const opt = document.createElement("option"); opt.value = t.name || ""; opt.textContent = `${t.name || ""}`; clsTeacher.appendChild(opt); });
+    }
     const clsSessionsCount = document.getElementById("clsSessionsCount");
     const clsSessions = document.getElementById("clsSessions");
+    let makeupList = [];
     function renderSessionBoxes(){
       const n = Math.max(1, Number(clsSessionsCount.value || 1));
       clsSessions.innerHTML = "";
+      makeupList = [];
       for(let i=1;i<=n;i++){
         const box = document.createElement("div");
         box.className = "card";
         const di = document.createElement("input"); di.type = "date"; di.name = `session_date_${i}`;
         const c1 = document.createElement("label");
-        const c1i = document.createElement("input"); c1i.type = "checkbox"; c1i.name = `session_cancel_${i}`; c1.appendChild(c1i); c1.appendChild(document.createTextNode(" کلاس کنسل شد"));
-        const c2 = document.createElement("label");
-        const c2i = document.createElement("input"); c2i.type = "checkbox"; c2i.name = `session_held_${i}`; c2.appendChild(c2i); c2.appendChild(document.createTextNode(" کلاس برگزار شد"));
+        const c1i = document.createElement("input"); c1i.type = "checkbox"; c1i.name = `session_cancel_${i}`; c1.appendChild(c1i); c1.appendChild(document.createTextNode(" کنسلی جلسه"));
         box.appendChild(document.createTextNode(`جلسه ${i}`));
         box.appendChild(document.createElement("br"));
         box.appendChild(di);
         box.appendChild(document.createElement("br"));
         box.appendChild(c1);
-        box.appendChild(c2);
         clsSessions.appendChild(box);
       }
+      const first = clsSessions.querySelector('[name="session_date_1"]');
+      if (first) first.addEventListener('change', propagateSessionDates);
     }
     clsSessionsCount.addEventListener("input", renderSessionBoxes);
     clsCourse.addEventListener("change", () => { const s = Number(clsCourse.selectedOptions[0]?.dataset.sessions || 0); if (s>0){ clsSessionsCount.value = s; renderSessionBoxes(); } });
+    function propagateSessionDates(){
+      const firstVal = document.querySelector('[name="session_date_1"]').value;
+      if(!firstVal) return;
+      const daysChecked = Array.from(document.querySelectorAll('#clsDays input[type="checkbox"]:checked')).map(i=>i.value);
+      const dayMap = { "یکشنبه":0, "دوشنبه":1, "سه‌شنبه":2, "چهارشنبه":3, "پنجشنبه":4, "جمعه":5, "شنبه":6 };
+      const wanted = daysChecked.map(d=>dayMap[d]).filter(v=>v!==undefined);
+      let d = new Date(firstVal);
+      const n = Math.max(1, Number(clsSessionsCount.value||1));
+      let count = 1;
+      while(count < n){
+        d.setDate(d.getDate()+1);
+        if (wanted.includes(d.getDay())){
+          count++;
+          const idx = count;
+          const inp = document.querySelector(`[name="session_date_${idx}"]`);
+          if (inp) inp.value = d.toISOString().slice(0,10);
+        }
+      }
+    }
+    const addMakeupSession = document.getElementById("addMakeupSession");
+    addMakeupSession?.addEventListener("click", ()=>{
+      const idx = makeupList.length + 1;
+      const box = document.createElement("div"); box.className = "card";
+      box.appendChild(document.createTextNode(`جلسه جبرانی ${idx}`)); box.appendChild(document.createElement("br"));
+      const di = document.createElement("input"); di.type = "date"; di.name = `makeup_date_${idx}`; box.appendChild(di); box.appendChild(document.createElement("br"));
+      const c1 = document.createElement("label"); const c1i = document.createElement("input"); c1i.type = "checkbox"; c1i.name = `makeup_cancel_${idx}`; c1.appendChild(c1i); c1.appendChild(document.createTextNode(" کنسلی جلسه")); box.appendChild(c1);
+      clsSessions.appendChild(box);
+      makeupList.push(idx);
+    });
     const clsStudents = document.getElementById("clsStudents");
     async function loadStudentsForClass(){
       const res = await fetch("/api/students");
@@ -921,13 +1010,20 @@
       const sessions = [];
       const n = Math.max(1, Number(payload.sessions_count || 1));
       for(let i=1;i<=n;i++){
-        sessions.push({ index: i, date: payload[`session_date_${i}`] || null, cancelled: !!payload[`session_cancel_${i}`], held: !!payload[`session_held_${i}`] });
-        delete payload[`session_date_${i}`]; delete payload[`session_cancel_${i}`]; delete payload[`session_held_${i}`];
+        sessions.push({ index: i, date: payload[`session_date_${i}`] || null, cancelled: !!payload[`session_cancel_${i}`] });
+        delete payload[`session_date_${i}`]; delete payload[`session_cancel_${i}`];
       }
+      makeupList.forEach((m, iIdx) => {
+        sessions.push({ index: n + iIdx + 1, date: payload[`makeup_date_${m}`] || null, cancelled: !!payload[`makeup_cancel_${m}`], makeup: true });
+        delete payload[`makeup_date_${m}`]; delete payload[`makeup_cancel_${m}`];
+      });
       payload.days = days;
       payload.students = studentsSel;
       payload.sessions = sessions;
       payload.title = clsCourse.selectedOptions[0]?.textContent || "";
+      const tf = document.getElementById("clsTimeFrom")?.value || "";
+      const tt = document.getElementById("clsTimeTo")?.value || "";
+      payload.time = (tf||tt) ? `${tf} - ${tt}` : (payload.time||"");
       const res = await fetch("/api/classes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (json?.ok) { await postWebhook("class_submit", json.cls || payload); }
@@ -942,8 +1038,30 @@
       list.innerHTML = "";
       filtered.forEach(x => {
         const c = document.createElement("div");
-        c.className = "card";
-        c.textContent = `${x.title || ""} | ${x.teacher || ""} | ${x.code || ""}`;
+        c.className = "rf-plain-item";
+        const info = document.createElement("div");
+        info.textContent = `${x.title || ""} | ${x.teacher || ""} | ${x.code || ""}`;
+        const actions = document.createElement("div"); actions.className = "actions";
+        const edit = document.createElement("button"); edit.className = "btn"; edit.textContent = "ویرایش"; edit.onclick = () => {
+          openClassForm();
+          Object.entries({ code: x.code, start: x.start, end_date: x.end_date, certificate_issue_date: x.certificate_issue_date }).forEach(([k,v])=>{ const el = classForm.querySelector(`[name="${k}"]`); if (el) el.value = v || ""; });
+          clsSessionsCount.value = Number(x.sessions_count||1);
+          renderSessionBoxes();
+          if (Array.isArray(x.sessions)) {
+            x.sessions.forEach(s => {
+              const di = classForm.querySelector(`[name="session_date_${s.index}"]`); if (di) di.value = s.date || "";
+              const ci = classForm.querySelector(`[name="session_cancel_${s.index}"]`); if (ci) ci.checked = !!s.cancelled;
+            });
+          }
+        };
+        const del = document.createElement("button"); del.className = "btn btn-secondary"; del.textContent = "حذف"; del.onclick = async () => {
+          if (!x.id) { showToast("شناسه نامعتبر", "error"); return; }
+          const res = await fetch(`/api/classes/${x.id}`, { method: "DELETE" }); const json = await res.json().catch(()=>({ ok:false }));
+          showToast(json.ok?"کلاس حذف شد":"خطا در حذف", json.ok?"success":"error");
+          loadClasses();
+        };
+        actions.appendChild(edit); actions.appendChild(del);
+        c.appendChild(info); c.appendChild(actions);
         list.appendChild(c);
       });
     }
@@ -1186,16 +1304,23 @@
         const sessionsText = (typeof x.sessions_count !== 'undefined') ? ` | جلسات: ${formatFaNumber(x.sessions_count)}` : "";
         const tuitionText = (typeof x.tuition !== 'undefined') ? ` | شهریه: ${formatFaNumber(x.tuition)}` : "";
         const title = document.createElement("div");
-        if (x.banner) { const box = document.createElement("div"); box.className = "thumb-box"; const img = document.createElement("img"); img.src = x.banner; img.alt = x.name||""; img.className = "course-thumb"; box.appendChild(img); title.appendChild(box); }
+        // نمایش اطلاعات دوره
         const text = document.createElement("span");
         text.textContent = `${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}`;
         title.appendChild(text);
         const actions = document.createElement("div");
         actions.className = "actions";
+        // نمایش thumbnail بنر کنار دکمه‌ها
+        if (x.banner) {
+          const box = document.createElement("div"); box.className = "thumb-box";
+          const img = document.createElement("img"); img.src = x.banner; img.alt = x.name||""; img.className = "course-thumb";
+          box.appendChild(img);
+          actions.appendChild(box);
+        }
         const edit = document.createElement("button");
         edit.className = "btn btn-secondary";
         edit.textContent = "ویرایش";
-        edit.onclick = ()=>openSchoolCourseForm(x);
+        edit.onclick = ()=>{ openSchoolCourseForm(x); c.insertAdjacentElement("afterend", schoolCourseFormPanel); };
         const del = document.createElement("button");
         del.className = "btn btn-secondary";
         del.textContent = "حذف";
@@ -1265,7 +1390,53 @@
       closeSchoolCourseForm();
       loadSchoolCourses();
     });
-    
+    const addTeacherBtn = document.getElementById("addTeacherBtn");
+    const teachersList = document.getElementById("teachersList");
+    const teachersSearch = document.getElementById("teachersSearch");
+    const teacherFormPanel = document.getElementById("teacherFormPanel");
+    const teacherForm = document.getElementById("teacherForm");
+    const cancelTeacherForm = document.getElementById("cancelTeacherForm");
+    function openTeacherForm(data=null){ teacherForm.reset(); if (data){ Object.entries(data).forEach(([k,v])=>{ const el = teacherForm.querySelector(`[name="${k}"]`); if (el) el.value = v || ""; }); } teacherFormPanel.style.display = "block"; }
+    function closeTeacherForm(){ teacherFormPanel.style.display = "none"; }
+    addTeacherBtn?.addEventListener("click", ()=> openTeacherForm());
+    cancelTeacherForm?.addEventListener("click", closeTeacherForm);
+    function renderTeachers(items){
+      const q = (teachersSearch?.value||"").trim();
+      const filtered = q ? items.filter(t => `${t.name||""} ${t.phone||""} ${t.skills||""}`.includes(q)) : items;
+      teachersList.innerHTML = "";
+      filtered.forEach(t => {
+        const c = document.createElement("div"); c.className = "rf-plain-item";
+        const info = document.createElement("div"); info.textContent = `${t.name||""} | ${t.phone||""}`;
+        const actions = document.createElement("div"); actions.className = "actions";
+        const edit = document.createElement("button"); edit.className = "btn"; edit.textContent = "ویرایش"; edit.onclick = () => openTeacherForm(t);
+        const del = document.createElement("button"); del.className = "btn btn-secondary"; del.textContent = "حذف"; del.onclick = async () => {
+          if (!t.id) { showToast("شناسه نامعتبر", "error"); return; }
+          const res = await fetch(`/api/teachers/${t.id}`, { method: "DELETE" }); const json = await res.json().catch(()=>({ ok:false }));
+          showToast(json.ok?"مدرس حذف شد":"خطا در حذف", json.ok?"success":"error");
+          loadTeachers();
+        };
+        actions.appendChild(edit); actions.appendChild(del);
+        c.appendChild(info); c.appendChild(actions);
+        teachersList.appendChild(c);
+      });
+    }
+    teachersSearch?.addEventListener("input", () => renderTeachers(window.teachersData||[]));
+    async function loadTeachers(){ const res = await fetch("/api/teachers"); const items = await res.json(); window.teachersData = items; renderTeachers(items); }
+    loadTeachers();
+    teacherForm?.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(teacherForm);
+      const obj = Object.fromEntries(fd.entries());
+      const id = obj.id;
+      let res;
+      if (id) res = await fetch(`/api/teachers/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) });
+      else res = await fetch("/api/teachers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) });
+      const json = await res.json().catch(()=>({ ok:false }));
+      showToast(json.ok? (id?"مدرس به‌روزرسانی شد":"مدرس اضافه شد") : "خطا در ثبت مدرس", json.ok?"success":"error");
+      if (json.ok){ closeTeacherForm(); loadTeachers(); }
+    });
+    const openAddTeacherBtn = document.getElementById("openAddTeacherBtn");
+    openAddTeacherBtn?.addEventListener("click", () => { activate("TeachersForm"); openTeacherForm(); });
 </script>
   </body>
   </html>

@@ -14,6 +14,7 @@ const sqlFiles = [
   '05_add_students_emergency_phone.sql',
   '06_add_students_full_name.sql',
   '07_align_students_schema.sql',
+  '08_create_teachers.sql',
   '02_seed_school_courses.sql',
   '03_seed_tech_courses.sql'
 ];

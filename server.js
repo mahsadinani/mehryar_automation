@@ -213,6 +213,80 @@ app.post("/api/classes", async (req, res) => {
   state.classes.push(item);
   res.json({ ok: true, cls: item });
 });
+app.put("/api/classes/:id", async (req, res) => {
+  const id = req.params.id;
+  const b = req.body || {};
+  if (supabase) {
+    const updateObj = {
+      course_id: b.course_id,
+      title: b.title,
+      teacher: b.teacher,
+      start: b.start,
+      room: b.room,
+      code: b.code,
+      time: b.time,
+      days: Array.isArray(b.days) ? b.days.join(",") : b.days,
+      sessions_count: Number(b.sessions_count || 0),
+      sessions: b.sessions,
+      end_date: b.end_date,
+      certificate_issue_date: b.certificate_issue_date,
+      tech_course_code: b.tech_course_code
+    };
+    const { data, error } = await supabase.from("classes").update(updateObj).eq("id", id).select("*").single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true, cls: data });
+  }
+  res.json({ ok: true });
+});
+app.delete("/api/classes/:id", async (req, res) => {
+  const id = req.params.id;
+  if (supabase) {
+    const { error } = await supabase.from("classes").delete().eq("id", id);
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true });
+  }
+  const idx = state.classes.findIndex(c => c.id === id);
+  if (idx >= 0) { state.classes.splice(idx, 1); return res.json({ ok: true }); }
+  res.status(404).json({ ok: false });
+});
+// Teachers API
+app.get("/api/teachers", async (req, res) => {
+  if (supabase) {
+    const { data, error } = await supabase.from("teachers").select("*").order("created_at", { ascending: false });
+    if (error) return res.json([]);
+    return res.json(data || []);
+  }
+  res.json(state.teachers || []);
+});
+app.post("/api/teachers", async (req, res) => {
+  const b = req.body || {};
+  const item = { id: Date.now().toString(), created_at: new Date().toISOString(), name: b.name || "", phone: b.phone || "", national_id: b.national_id || "", skills: b.skills || "", note: b.note || "" };
+  if (supabase) {
+    const { data, error } = await supabase.from("teachers").insert([item]).select("*").single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true, teacher: data });
+  }
+  state.teachers = state.teachers || []; state.teachers.push(item);
+  res.json({ ok: true, teacher: item });
+});
+app.put("/api/teachers/:id", async (req, res) => {
+  const id = req.params.id; const b = req.body || {};
+  if (supabase) {
+    const { data, error } = await supabase.from("teachers").update({ name: b.name, phone: b.phone, national_id: b.national_id, skills: b.skills, note: b.note }).eq("id", id).select("*").single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true, teacher: data });
+  }
+  res.json({ ok: true });
+});
+app.delete("/api/teachers/:id", async (req, res) => {
+  const id = req.params.id;
+  if (supabase) {
+    const { error } = await supabase.from("teachers").delete().eq("id", id);
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true });
+  }
+  res.json({ ok: true });
+});
 app.post("/api/classes/attendance", async (req, res) => {
   const { classId, studentId, present } = req.body || {};
   if (!classId || !studentId) return res.status(400).json({ ok: false });
@@ -385,8 +459,8 @@ app.post("/api/students", async (req, res) => {
   if (supabase) {
     let payload = { ...item };
     for (let i = 0; i < 8; i++) {
-      const { data, error } = await supabase.from("students").insert([payload]).select("*").single();
-      if (!error) return res.json({ ok: true, student: data });
+      const { data, error } = await supabase.from("students").insert([payload]).select("*").maybeSingle();
+      if (!error) return res.json({ ok: true, student: data || (Array.isArray(data) ? data[0] : data) });
       const msg = String(error.message||"");
       const m1 = msg.match(/Could not find the '([^']+)' column/i);
       const m2 = msg.match(/column\s+"([^"]+)"\s+does not exist/i);
@@ -408,8 +482,8 @@ app.put("/api/students/:id", async (req, res) => {
     updateObj.student_id = (() => { const r = (b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || updateObj.student_id || ""); })();
     let payload = { ...updateObj };
     for (let i = 0; i < 8; i++) {
-      const { data, error } = await supabase.from("students").update(payload).eq("id", id).select("*").single();
-      if (!error) return res.json({ ok: true, student: data });
+      const { data, error } = await supabase.from("students").update(payload).eq("id", id).select("*").maybeSingle();
+      if (!error) return res.json({ ok: true, student: data || (Array.isArray(data) ? data[0] : data) });
       const msg = String(error.message||"");
       const m1 = msg.match(/Could not find the '([^']+)' column/i);
       const m2 = msg.match(/column\s+"([^"]+)"\s+does not exist/i);
