@@ -1384,11 +1384,27 @@
         const idEl = document.getElementById("sfId"); if (idEl) idEl.value = data.id || "";
         const sSel = document.getElementById("sfStudent");
         const cSel = document.getElementById("sfClass");
-        if (cSel) cSel.value = data.class_code || "";
+        let codeVal = data.class_code || "";
+        if (!codeVal) {
+          const classes = window.classesData || [];
+          const found = classes.find(cl => {
+            const ids = Array.isArray(cl.students) ? cl.students : (typeof cl.students === 'string' ? (cl.students ? JSON.parse(cl.students) : []) : []);
+            return ids.includes(data.student_id);
+          });
+          codeVal = found ? (found.code || found.id || "") : "";
+        }
+        if (cSel) cSel.value = codeVal;
         filterSfStudentsByClass(data.student_id || "");
         if (sSel) sSel.value = data.student_id || "";
         const ua = document.getElementById("sfUpfrontAmount"); if (ua) ua.value = String(data.upfront_amount||"");
-        const st = document.getElementById("sfStatus"); if (st) st.value = data.status || "";
+        const st = document.getElementById("sfStatus");
+        if (st) {
+          const raw = String(data.status||"").trim();
+          const low = raw.toLowerCase();
+          const mapped = (/cancel|کنسل|لغو/.test(low)) ? "کنسل شده"
+            : ((/settled|paid/.test(low) || /تسویه\s*شده/.test(raw)) ? "تسویه شده" : "در انتظار تسویه");
+          st.value = mapped;
+        }
         if (data.upfront_date && uj && ug) {
           const m = String(data.upfront_date).match(/^(\d{4})-(\d{2})-(\d{2})$/);
           if (m) { const parts = g2j(Number(m[1]), Number(m[2]), Number(m[3])); uj.value = `${toFaDigits(String(parts[2]).padStart(2,"0"))}/${toFaDigits(String(parts[1]).padStart(2,"0"))}/${toFaDigits(parts[0])}`; ug.value = data.upfront_date; }
@@ -1512,7 +1528,7 @@
         const c = document.createElement("div");
         let status = String(x.status||"").trim() || "در انتظار تسویه";
         const low = status.toLowerCase();
-        const norm = /settled|paid|تسویه/.test(low) ? "settled" : (/cancel|کنسل|لغو/.test(low) ? "cancelled" : "pending");
+        const norm = (/cancel|کنسل|لغو/.test(low)) ? "cancelled" : ((/settled|paid/.test(low) || /تسویه\s*شده/.test(status)) ? "settled" : "pending");
         const statusClass = norm === "settled" ? "rf-finance-settled" : (norm === "cancelled" ? "rf-finance-cancelled" : "rf-finance-pending");
         c.className = `rf-plain-item ${statusClass}`;
         if (norm === "settled") c.style.background = "#d1fadf"; else if (norm === "cancelled") c.style.background = "#fee2e2"; else c.style.background = "#fff";
