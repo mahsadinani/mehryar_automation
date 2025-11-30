@@ -383,8 +383,7 @@ app.post("/api/students", async (req, res) => {
   const nidRaw = (item.national_id || "").replace(/\D/g, "");
   if (nidRaw.length === 10) item.student_id = nidRaw.replace(/^0+/, "");
   if (supabase) {
-    const allow = ["id","created_at","name","phone","status","student_id"]; 
-    let payload = Object.fromEntries(Object.entries(item).filter(([k]) => allow.includes(k)));
+    let payload = { ...item };
     for (let i = 0; i < 8; i++) {
       const { data, error } = await supabase.from("students").insert([payload]).select("*").single();
       if (!error) return res.json({ ok: true, student: data });
@@ -407,8 +406,7 @@ app.put("/api/students/:id", async (req, res) => {
     const updateObj = {};
     ["name","last_name","gender","father_name","national_id","address","phone","emergency_phone","english_name","issuer","status"].forEach(k => { if (b[k] !== undefined) updateObj[k] = b[k]; });
     updateObj.student_id = (() => { const r = (b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || updateObj.student_id || ""); })();
-    const allow = ["name","last_name","phone","status","student_id","english_name","national_id","address","issuer","father_name","gender","emergency_phone"];
-    let payload = Object.fromEntries(Object.entries(updateObj).filter(([k]) => allow.includes(k)));
+    let payload = { ...updateObj };
     for (let i = 0; i < 8; i++) {
       const { data, error } = await supabase.from("students").update(payload).eq("id", id).select("*").single();
       if (!error) return res.json({ ok: true, student: data });
