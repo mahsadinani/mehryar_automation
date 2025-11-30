@@ -431,6 +431,13 @@
           <div class="rf-row"><label>نام شاگرد</label>
             <select name="student_id" id="sfStudent" required></select>
           </div>
+          <div class="rf-row"><label>مبلغ دوره</label>
+            <div style="display:flex; gap:8px; align-items:center">
+              <input id="sfCourseTuitionView" placeholder="خوانده از دوره" readonly />
+              <input type="hidden" name="course_tuition" id="sfCourseTuition" />
+            </div>
+          </div>
+          <div class="rf-row"><label>تخفیف</label><input name="discount" id="sfDiscount" /></div>
           <div class="rf-row"><label>مبلغ پیش‌پرداخت</label><input name="upfront_amount" id="sfUpfrontAmount" /></div>
           <div class="rf-row"><label>تاریخ پیش‌پرداخت</label>
             <div class="rf-multi"><input id="sfUpfrontDateJ" placeholder="yyyy/mm/dd" /><input name="upfront_date" id="sfUpfrontDateG" type="hidden" /><div id="sfUpfrontDrop" class="rf-dropdown"></div></div>
@@ -455,7 +462,15 @@
       </div>
       <div class="list">
         <h3>پروفایل‌های مالی شاگردان</h3>
-        <div style="margin-bottom:8px"><input id="studentFinanceSearch" placeholder="جستجو پروفایل..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+        <div style="display:grid; grid-template-columns: 1fr 200px; gap:8px; margin-bottom:8px">
+          <input id="studentFinanceSearch" placeholder="جستجو پروفایل..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" />
+          <select id="financeStatusFilter" style="padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa">
+            <option value="">همه وضعیت‌ها</option>
+            <option value="تسویه شده">تسویه شده</option>
+            <option value="کنسل شده">کنسل شده</option>
+            <option value="در انتظار تسویه">در انتظار تسویه</option>
+          </select>
+        </div>
         <div id="studentFinanceList" class="rf-plain-list"></div>
       </div>
     </section>
@@ -1411,12 +1426,17 @@
         }
         const inst = Array.isArray(data.installments) ? data.installments : [];
         inst.forEach(it => addInstallmentRow(it));
+        updateCourseTuitionForSelectedClass();
+        const disc = document.getElementById("sfDiscount"); const ct = document.getElementById("sfCourseTuition"); const ctv = document.getElementById("sfCourseTuitionView");
+        if (disc) disc.value = String(data.discount||"");
+        if (ct && ctv) { const val = Number(data.course_tuition||ct.value||0); ct.value = String(val); ctv.value = formatFaNumber(val); }
       } else {
         if (uj && ug) {
           const now = new Date(); const [jy,jm,jd] = g2j(now.getFullYear(), now.getMonth()+1, now.getDate());
           uj.value = `${toFaDigits(String(jd).padStart(2,"0"))}/${toFaDigits(String(jm).padStart(2,"0"))}/${toFaDigits(jy)}`;
           ug.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
         }
+        updateCourseTuitionForSelectedClass();
       }
       attachFinanceJalaliPickers();
     }
@@ -1450,9 +1470,21 @@
       sfStudent.innerHTML = "";
       sfStudent.disabled = true;
       filterSfStudentsByClass();
-      sfClass.addEventListener("change", filterSfStudentsByClass);
+      sfClass.addEventListener("change", () => { filterSfStudentsByClass(); updateCourseTuitionForSelectedClass(); });
+      updateCourseTuitionForSelectedClass();
     }
     loadSfOptions();
+    function updateCourseTuitionForSelectedClass(){
+      const code = sfClass.value || "";
+      const classes = window.classesData||[];
+      const courses = window.schoolCoursesData||[];
+      let tuition = 0;
+      const cls = classes.find(cl => (cl.code||cl.id||"") === code);
+      if (cls) { const crs = courses.find(cs => cs.id === cls.course_id); if (crs) tuition = Number(crs.tuition||0); }
+      const v = document.getElementById("sfCourseTuitionView"); const h = document.getElementById("sfCourseTuition");
+      if (v) v.value = formatFaNumber(tuition);
+      if (h) h.value = String(tuition);
+    }
     function addInstallmentRow(pref){
       const wrap = document.createElement("div"); wrap.className = "card";
       const rid = Date.now().toString() + Math.random().toString().slice(2,6);
@@ -1515,16 +1547,23 @@
     }
     const studentFinanceList = document.getElementById("studentFinanceList");
     const studentFinanceSearch = document.getElementById("studentFinanceSearch");
+    const financeStatusFilter = document.getElementById("financeStatusFilter");
     function renderStudentFinance(items){
       const q = (studentFinanceSearch?.value||"").trim();
+      const fs = (financeStatusFilter?.value||"").trim();
       const filtered = q ? items.filter(x => `${x.class_code||""} ${x.status||""} ${x.student_id||""}`.includes(q)) : items;
+      const filtered2 = fs ? filtered.filter(x => {
+        const raw = String(x.status||"").trim(); const low = raw.toLowerCase();
+        const norm = (/cancel|کنسل|لغو/.test(low)) ? "کنسل شده" : ((/settled|paid/.test(low) || /تسویه\s*شده/.test(raw)) ? "تسویه شده" : "در انتظار تسویه");
+        return norm === fs;
+      }) : filtered;
       const stMap = new Map((window.studentsData||[]).map(s => {
         const full = (s.full_name && String(s.full_name).trim()) || [s.name, s.last_name].filter(Boolean).join(" ") || (s.english_name||"بدون نام");
         return [s.id, full];
       }));
       const clsMap = new Map((window.classesData||[]).map(c => [c.code || c.id, c.title || c.name || ""]));
       studentFinanceList.innerHTML = "";
-      filtered.forEach(x => {
+      filtered2.forEach(x => {
         const c = document.createElement("div");
         let status = String(x.status||"").trim() || "در انتظار تسویه";
         const low = status.toLowerCase();
@@ -1543,7 +1582,19 @@
           if (found) clsName = found.title || found.name || found.code || "";
         }
         const info = document.createElement("div"); const money = formatFaNumber(x.upfront_amount||0);
-        info.textContent = `${sName} | ${clsName} | ${status} ${(x.upfront_amount!==undefined && x.upfront_amount!==null)?`| پیش‌پرداخت: ${money}`:""}`;
+        const inst = Array.isArray(x.installments) ? x.installments : [];
+        const instSum = inst.reduce((a,b)=>a + (Number(String(b.amount||"").replace(/[^0-9]/g,""))||0), 0);
+        let tuition = Number(x.course_tuition||0);
+        if (!tuition) {
+          const classes = window.classesData||[]; const courses = window.schoolCoursesData||[];
+          const cls = classes.find(cl => (cl.code||cl.id||"") === (x.class_code||""));
+          if (cls) { const crs = courses.find(cs => cs.id === cls.course_id); if (crs) tuition = Number(crs.tuition||0); }
+        }
+        const discount = Number(x.discount||0);
+        const totalPaid = (Number(x.upfront_amount||0) + instSum);
+        const netDue = Math.max(0, tuition - discount);
+        const remain = Math.max(0, netDue - totalPaid);
+        info.textContent = `${sName} | ${clsName} | ${status} ${(x.upfront_amount!==undefined && x.upfront_amount!==null)?`| پیش‌پرداخت: ${money}`:""} | پرداختی: ${formatFaNumber(totalPaid)} | باقی‌مانده: ${formatFaNumber(remain)}`;
         const actions = document.createElement("div"); actions.className = "actions"; actions.style.marginTop = "0";
         const editBtn = document.createElement("button"); editBtn.className = "btn"; editBtn.textContent = "ویرایش"; editBtn.onclick = () => openStudentFinanceForm(x);
         const delBtn = document.createElement("button"); delBtn.className = "btn btn-secondary"; delBtn.textContent = "حذف"; delBtn.onclick = async () => { if (!x.id) { showToast("شناسه نامعتبر", "error"); return; } const res = await fetch(`/api/finance/student-profiles/${x.id}`, { method: "DELETE" }); const json = await res.json().catch(()=>({ ok:false })); showToast(json.ok?"پروفایل مالی حذف شد":"خطا در حذف", json.ok?"success":"error"); loadStudentFinance(); };
@@ -1552,6 +1603,7 @@
       });
     }
     studentFinanceSearch?.addEventListener("input", () => renderStudentFinance(window.studentFinanceData||[]));
+    financeStatusFilter?.addEventListener("change", () => renderStudentFinance(window.studentFinanceData||[]));
     async function loadStudentFinance(){
       const res = await fetch("/api/finance/student-profiles");
       const items = await res.json();
@@ -1575,7 +1627,9 @@
         upfront_amount: Number(String(obj.upfront_amount||"").replace(/[^0-9]/g, "")) || 0,
         upfront_date: document.getElementById("sfUpfrontDateG")?.value || null,
         installments,
-        status: obj.status
+        status: obj.status,
+        discount: Number(String(obj.discount||"").replace(/[^0-9]/g, "")) || 0,
+        course_tuition: Number(String(obj.course_tuition||"").replace(/[^0-9]/g, "")) || 0
       };
       const id = obj.id;
       const res = id
@@ -1583,7 +1637,11 @@
         : await fetch("/api/finance/student-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (json?.ok) { await postWebhook(id?"student_finance_update":"student_finance_submit", json.profile || payload); }
-      const warnText = "";
+      const instSum = installments.reduce((a,b)=>a+(Number(b.amount||0)||0),0);
+      const totalPaid = (payload.upfront_amount||0) + instSum;
+      const netDue = Math.max(0, (payload.course_tuition||0) - (payload.discount||0));
+      const remain = Math.max(0, netDue - totalPaid);
+      const warnText = ` | پرداختی: ${formatFaNumber(totalPaid)} | باقی‌مانده: ${formatFaNumber(remain)}`;
       const errText = (() => {
         if (json?.errors) {
           const entries = Object.entries(json.errors);

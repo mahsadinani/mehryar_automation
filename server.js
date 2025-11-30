@@ -418,6 +418,10 @@ app.post("/api/finance/student-profiles", async (req, res) => {
   if (!b.class_code) errors.class_code = "کد کلاس الزامی است";
   const upfront_amount_num = Number(b.upfront_amount || 0);
   if (!Number.isFinite(upfront_amount_num) || upfront_amount_num < 0) errors.upfront_amount = "مبلغ پیش‌پرداخت نامعتبر است";
+  const discount_num = Number(b.discount || 0);
+  if (!Number.isFinite(discount_num) || discount_num < 0) errors.discount = "تخفیف نامعتبر است";
+  const course_tuition_num = Number(b.course_tuition || 0);
+  if (!Number.isFinite(course_tuition_num) || course_tuition_num < 0) errors.course_tuition = "مبلغ دوره نامعتبر است";
   if (b.upfront_date && !isIsoDate(b.upfront_date)) errors.upfront_date = "تاریخ پیش‌پرداخت باید در قالب YYYY-MM-DD باشد";
   const instArr = Array.isArray(b.installments) ? b.installments : [];
   instArr.forEach((it, idx) => {
@@ -437,7 +441,9 @@ app.post("/api/finance/student-profiles", async (req, res) => {
     upfront_amount: upfront_amount_num,
     upfront_date: b.upfront_date || null,
     installments: instArr,
-    status: b.status || "در انتظار تسویه"
+    status: b.status || "در انتظار تسویه",
+    discount: discount_num,
+    course_tuition: course_tuition_num
   };
   if (supabase) {
     let payload = { ...item };
@@ -472,7 +478,9 @@ app.put("/api/finance/student-profiles/:id", async (req, res) => {
       upfront_amount: Number(b.upfront_amount || 0),
       upfront_date: b.upfront_date || null,
       installments: Array.isArray(b.installments) ? b.installments : [],
-      status: b.status
+      status: b.status,
+      discount: Number(b.discount || 0),
+      course_tuition: Number(b.course_tuition || 0)
     };
     const removed = {};
     for (let attempt = 0; attempt < 6; attempt++) {
