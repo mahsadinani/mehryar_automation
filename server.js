@@ -80,6 +80,7 @@ app.post("/api/applicants", async (req, res) => {
     name: body.name || "",
     phone: body.phone || "",
     email: body.email || "",
+    gender: body.gender || "",
     course: body.course || "",
     familiarity: body.familiarity || "",
     note: body.note || "",
@@ -92,7 +93,15 @@ app.post("/api/applicants", async (req, res) => {
     send_course_info: !!body.send_course_info
   };
   if (supabase) {
-    const { data, error } = await supabase.from("applicants").insert([{ ...item }]).select("*").single();
+    let { data, error } = await supabase.from("applicants").insert([{ ...item }]).select("*").single();
+    if (error && /gender/.test(error.message||"")) {
+      const fallback = { ...item };
+      delete fallback.gender;
+      fallback.note = `${item.note || ""}${item.gender ? ` [gender:${item.gender}]` : ""}`.trim();
+      const r2 = await supabase.from("applicants").insert([fallback]).select("*").single();
+      if (r2.error) return res.status(500).json({ ok: false, error: r2.error.message });
+      return res.json({ ok: true, applicant: r2.data });
+    }
     if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, applicant: data });
   }
@@ -114,6 +123,7 @@ app.put("/api/applicants/:id", async (req, res) => {
     name: body.name,
     phone: body.phone,
     email: body.email,
+    gender: body.gender,
     course: body.course,
     familiarity: body.familiarity,
     note: body.note,
@@ -126,7 +136,15 @@ app.put("/api/applicants/:id", async (req, res) => {
     send_course_info: !!body.send_course_info
   };
   if (supabase) {
-    const { data, error } = await supabase.from("applicants").update(update).eq("id", id).select("*").single();
+    let { data, error } = await supabase.from("applicants").update(update).eq("id", id).select("*").single();
+    if (error && /gender/.test(error.message||"")) {
+      const fallback = { ...update };
+      delete fallback.gender;
+      if (update.gender) fallback.note = `${update.note || ""} [gender:${update.gender}]`.trim();
+      const r2 = await supabase.from("applicants").update(fallback).eq("id", id).select("*").single();
+      if (r2.error) return res.status(500).json({ ok: false, error: r2.error.message });
+      return res.json({ ok: true, applicant: r2.data });
+    }
     if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, applicant: data });
   }

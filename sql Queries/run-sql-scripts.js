@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 const sqlFiles = [
   '00_reset.sql',
   '01_schema.sql', 
+  '04_add_applicants_gender.sql',
   '02_seed_school_courses.sql',
   '03_seed_tech_courses.sql'
 ];
