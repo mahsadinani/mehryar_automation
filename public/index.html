@@ -40,8 +40,8 @@
     .rf-plain-list { display:block }
     .rf-plain-item { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid #e5e7eb }
     .rf-plain-item.rf-finance-pending { background:#fff }
-    .rf-plain-item.rf-finance-settled { background:#eafbe6; border-bottom-color:#a7e3a0 }
-    .rf-plain-item.rf-finance-cancelled { background:#fde8e8; border-bottom-color:#f5b5b5 }
+    .rf-plain-item.rf-finance-settled { background:#d1fadf; border-bottom-color:#a7e3a0 }
+    .rf-plain-item.rf-finance-cancelled { background:#fee2e2; border-bottom-color:#f5b5b5 }
     .rf-row label { color:#0c5a98; font-weight:600; text-align:right; line-height:1.3; margin:0 }
     .rf-row input { background:#f5f7fa; border:1px solid #dbe0e6; border-radius:10px; padding:8px 10px; height:40px }
     .rf-row textarea { background:#f5f7fa; border:1px solid #dbe0e6; border-radius:10px; padding:10px; min-height:96px; line-height:1.5 }
@@ -1376,6 +1376,7 @@
       studentFinanceForm.reset();
       studentFinanceFormPanel.style.display = "block";
       Array.from(document.querySelectorAll('#studentFinanceFormPanel .rf-dropdown')).forEach(el=>{ el.style.display = 'none'; });
+      const upfrontDrop = document.getElementById('sfUpfrontDrop'); if (upfrontDrop) upfrontDrop.style.display = 'none';
       sfInstallments.innerHTML = "";
       const uj = document.getElementById("sfUpfrontDateJ");
       const ug = document.getElementById("sfUpfrontDateG");
@@ -1508,13 +1509,21 @@
       studentFinanceList.innerHTML = "";
       filtered.forEach(x => {
         const c = document.createElement("div");
-        const status = String(x.status||"");
+        let status = String(x.status||"") || "در انتظار تسویه";
         const statusClass = status === "تسویه شده" ? "rf-finance-settled" : (status === "کنسل شده" ? "rf-finance-cancelled" : "rf-finance-pending");
         c.className = `rf-plain-item ${statusClass}`;
         const sName = stMap.get(x.student_id) || x.student_id || "";
-        const clsName = clsMap.get(x.class_code) || x.class_code || "";
+        let clsName = clsMap.get(x.class_code) || x.class_code || "";
+        if (!clsName) {
+          const classes = window.classesData || [];
+          const found = classes.find(cl => {
+            const ids = Array.isArray(cl.students) ? cl.students : (typeof cl.students === 'string' ? (cl.students ? JSON.parse(cl.students) : []) : []);
+            return ids.includes(x.student_id);
+          });
+          if (found) clsName = found.title || found.name || found.code || "";
+        }
         const info = document.createElement("div"); const money = formatFaNumber(x.upfront_amount||0);
-        info.textContent = `${sName} | ${clsName} | ${status} ${x.upfront_amount!==undefined?`| پیش‌پرداخت: ${money}`:""}`;
+        info.textContent = `${sName} | ${clsName} | ${status} ${(x.upfront_amount!==undefined && x.upfront_amount!==null)?`| پیش‌پرداخت: ${money}`:""}`;
         const actions = document.createElement("div"); actions.className = "actions"; actions.style.marginTop = "0";
         const editBtn = document.createElement("button"); editBtn.className = "btn"; editBtn.textContent = "ویرایش"; editBtn.onclick = () => openStudentFinanceForm(x);
         const delBtn = document.createElement("button"); delBtn.className = "btn btn-secondary"; delBtn.textContent = "حذف"; delBtn.onclick = async () => { if (!x.id) { showToast("شناسه نامعتبر", "error"); return; } const res = await fetch(`/api/finance/student-profiles/${x.id}`, { method: "DELETE" }); const json = await res.json().catch(()=>({ ok:false })); showToast(json.ok?"پروفایل مالی حذف شد":"خطا در حذف", json.ok?"success":"error"); loadStudentFinance(); };
