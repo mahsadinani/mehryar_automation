@@ -775,13 +775,14 @@
     cancelStudentForm.addEventListener("click", closeStudentForm);
     function renderStudents(items){
       const q = (studentsSearch?.value || "").trim();
-      const filtered = q ? items.filter(x => `${(x.name||"")} ${(x.last_name||"")} ${(x.phone||"")} ${(x.student_id||"")}`.includes(q)) : items;
+      const filtered = q ? items.filter(x => `${(x.full_name||"")} ${(x.name||"")} ${(x.last_name||"")} ${(x.phone||"")} ${(x.student_id||"")}`.includes(q)) : items;
       studentsList.innerHTML = "";
       filtered.forEach(x => {
-        const full = [x.name, x.last_name].filter(Boolean).join(" ");
+        const full = (x.full_name && String(x.full_name).trim()) || [x.name, x.last_name].filter(Boolean).join(" ") || (x.english_name||"");
+        const title = full || "بدون نام";
         const c = document.createElement("div");
         c.className = "card";
-        c.innerHTML = `${full} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
+        c.innerHTML = `${title} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
         const edit = document.createElement("button");
         edit.className = "btn btn-secondary";
         edit.textContent = "ویرایش";
@@ -892,7 +893,7 @@
       const res = await fetch("/api/students");
       const students = await res.json();
       clsStudents.innerHTML = "";
-      students.forEach(st => { const label = document.createElement("label"); const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = st.id || `${st.name}`; label.appendChild(cb); const full = [st.name, st.last_name].filter(Boolean).join(" "); label.appendChild(document.createTextNode(` ${full}`)); clsStudents.appendChild(label); });
+      students.forEach(st => { const label = document.createElement("label"); const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = st.id || `${st.name}`; label.appendChild(cb); const full = (st.full_name && String(st.full_name).trim()) || [st.name, st.last_name].filter(Boolean).join(" ") || (st.english_name||"بدون نام"); label.appendChild(document.createTextNode(` ${full}`)); clsStudents.appendChild(label); });
     }
     loadStudentsForClass();
     classForm.addEventListener("submit", async e => {
@@ -967,7 +968,7 @@
       const students = await stRes.json();
       const classes = await clsRes.json();
       sfStudent.innerHTML = "";
-      students.forEach(s => { const opt = document.createElement("option"); opt.value = s.id || `${s.name}`; const full = [s.name, s.last_name].filter(Boolean).join(" "); opt.textContent = full; sfStudent.appendChild(opt); });
+      students.forEach(s => { const opt = document.createElement("option"); opt.value = s.id || `${s.name}`; const full = (s.full_name && String(s.full_name).trim()) || [s.name, s.last_name].filter(Boolean).join(" ") || (s.english_name||"بدون نام"); opt.textContent = full; sfStudent.appendChild(opt); });
       sfClass.innerHTML = "";
       classes.forEach(c => { const opt = document.createElement("option"); opt.value = c.code || c.id || ""; opt.textContent = `${c.code||""} - ${c.title||c.name||""}`; sfClass.appendChild(opt); });
     }
