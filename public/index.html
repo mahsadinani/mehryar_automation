@@ -1281,7 +1281,27 @@
           showToast(json.ok?"کلاس حذف شد":"خطا در حذف", json.ok?"success":"error");
           loadClasses();
         };
-        const viewStudents = document.createElement("button"); viewStudents.className = "btn btn-secondary"; viewStudents.textContent = "مشاهده لیست شاگردان"; viewStudents.onclick = () => openClassStudentsModal(x);
+        const viewStudents = document.createElement("button"); viewStudents.className = "btn btn-secondary"; viewStudents.textContent = "مشاهده لیست شاگردان"; viewStudents.onclick = async () => {
+          const modal = document.getElementById("studentsModal");
+          const titleEl = document.getElementById("studentsModalTitle");
+          const bodyEl = document.getElementById("studentsModalBody");
+          document.getElementById("studentsModalClose")?.addEventListener("click", () => { modal.style.display = "none"; bodyEl.innerHTML = ""; }, { once: true });
+          const ids = Array.isArray(x.students)?x.students:[];
+          titleEl.textContent = `شاگردان کلاس: ${x.title||x.code||""}`;
+          bodyEl.innerHTML = "";
+          const res = await fetch("/api/students"); const all = await res.json();
+          const map = new Map(all.map(s => [s.id, s]));
+          if (!ids.length) { bodyEl.textContent = "شاگردی برای این کلاس ثبت نشده است"; modal.style.display = "flex"; return; }
+          ids.forEach(sid => {
+            const st = map.get(sid) || { id:sid, name:sid };
+            const row = document.createElement("div"); row.className = "rf-plain-item";
+            const n = (st.name && String(st.name).trim()) || (st.full_name && String(st.full_name).trim()) || (st.english_name||"بدون نام");
+            const info = document.createElement("div"); info.textContent = `${n} | ${st.phone||""} ${st.student_id?`| ${st.student_id}`:""}`;
+            row.appendChild(info);
+            bodyEl.appendChild(row);
+          });
+          modal.style.display = "flex";
+        };
         actions.appendChild(edit); actions.appendChild(del); actions.appendChild(viewStudents);
         c.appendChild(info); c.appendChild(actions);
         list.appendChild(c);
