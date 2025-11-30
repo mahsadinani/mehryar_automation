@@ -611,6 +611,10 @@
       const map = {"0":"۰","1":"۱","2":"۲","3":"۳","4":"۴","5":"۵","6":"۶","7":"۷","8":"۸","9":"۹"};
       return String(s).replace(/[0-9]/g, d => map[d]);
     }
+    function fromFaDigits(s){
+      const map = {"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9"};
+      return String(s).replace(/[۰-۹]/g, d => map[d] || d);
+    }
     function pad2(n){ return String(n).padStart(2, "0"); }
     function g2j(gy, gm, gd){
       gy = +gy; gm = +gm; gd = +gd;
@@ -978,7 +982,8 @@
         { j: document.getElementById("clsCertJ"), g: document.getElementById("clsCertG") }
       ];
       const parseJ = (val) => {
-        const m = String(val||"").match(/^\s*(\d{4})\/(\d{1,2})\/(\d{1,2})\s*$/);
+        const v = fromFaDigits(String(val||""));
+        const m = v.match(/^\s*(\d{4})\/(\d{1,2})\/(\d{1,2})\s*$/);
         if (!m) return null;
         const jy = Number(m[1]), jm = Number(m[2]), jd = Number(m[3]);
         if (!jy || jm<1 || jm>12 || jd<1 || jd>31) return null;
@@ -1057,7 +1062,8 @@
     function attachSessionJalaliPickers(){
       const n = Math.max(1, Number(clsSessionsCount.value || 1));
       const parseJ = (val) => {
-        const m = String(val||"").match(/^\s*(\d{4})\/(\d{1,2})\/(\d{1,2})\s*$/);
+        const v = fromFaDigits(String(val||""));
+        const m = v.match(/^\s*(\d{4})\/(\d{1,2})\/(\d{1,2})\s*$/);
         if (!m) return null;
         const jy = Number(m[1]), jm = Number(m[2]), jd = Number(m[3]);
         if (!jy || jm<1 || jm>12 || jd<1 || jd>31) return null;
