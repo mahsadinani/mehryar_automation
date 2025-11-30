@@ -1460,11 +1460,13 @@
       if (selectedId && !ids.includes(selectedId)) { const s = map.get(selectedId); if (s) { const opt = document.createElement("option"); opt.value = s.id; opt.textContent = fullStudentName(s) + " (خارج از این کلاس)"; sfStudent.appendChild(opt); } }
     }
     async function loadSfOptions(){
-      const [stRes, clsRes] = await Promise.all([fetch("/api/students"), fetch("/api/classes")]);
+      const [stRes, clsRes, crsRes] = await Promise.all([fetch("/api/students"), fetch("/api/classes"), fetch("/api/courses")]);
       const students = await stRes.json();
       const classes = await clsRes.json();
+      const courses = await crsRes.json();
       window.studentsData = students;
       window.classesData = classes;
+      window.schoolCoursesData = courses;
       sfClass.innerHTML = "";
       classes.forEach(c => { const opt = document.createElement("option"); opt.value = c.code || c.id || ""; opt.textContent = `${c.code||""} - ${c.title||c.name||""}`; sfClass.appendChild(opt); });
       sfStudent.innerHTML = "";
