@@ -11,6 +11,7 @@ const sqlFiles = [
   '00_reset.sql',
   '01_schema.sql', 
   '04_add_applicants_gender.sql',
+  '05_add_students_emergency_phone.sql',
   '02_seed_school_courses.sql',
   '03_seed_tech_courses.sql'
 ];

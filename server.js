@@ -389,7 +389,13 @@ app.post("/api/students", async (req, res) => {
   const nidRaw = (item.national_id || "").replace(/\D/g, "");
   if (nidRaw.length === 10) item.student_id = nidRaw.replace(/^0+/, "");
   if (supabase) {
-    const { data, error } = await supabase.from("students").insert([item]).select("*").single();
+    let { data, error } = await supabase.from("students").insert([item]).select("*").single();
+    if (error && /emergency_phone/.test(error.message||"")) {
+      const fallback = { ...item }; delete fallback.emergency_phone;
+      const r2 = await supabase.from("students").insert([fallback]).select("*").single();
+      if (r2.error) return res.status(500).json({ ok: false, error: r2.error.message });
+      return res.json({ ok: true, student: r2.data });
+    }
     if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, student: data });
   }
@@ -400,7 +406,7 @@ app.put("/api/students/:id", async (req, res) => {
   const id = req.params.id;
   const b = req.body || {};
   if (supabase) {
-    const { data, error } = await supabase.from("students").update({
+    const updateObj = {
       name: b.name,
       last_name: b.last_name,
       gender: b.gender,
@@ -413,7 +419,14 @@ app.put("/api/students/:id", async (req, res) => {
       student_id: (() => { const r = (b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || ""); })(),
       issuer: b.issuer,
       status: b.status
-    }).eq("id", id).select("*").single();
+    };
+    let { data, error } = await supabase.from("students").update(updateObj).eq("id", id).select("*").single();
+    if (error && /emergency_phone/.test(error.message||"")) {
+      const fallback = { ...updateObj }; delete fallback.emergency_phone;
+      const r2 = await supabase.from("students").update(fallback).eq("id", id).select("*").single();
+      if (r2.error) return res.status(500).json({ ok: false, error: r2.error.message });
+      return res.json({ ok: true, student: r2.data });
+    }
     if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, student: data });
   }
