@@ -1746,24 +1746,3 @@
 </script>
   </body>
   </html>
-    const studentsModal = document.getElementById("studentsModal");
-    const studentsModalTitle = document.getElementById("studentsModalTitle");
-    const studentsModalBody = document.getElementById("studentsModalBody");
-    document.getElementById("studentsModalClose")?.addEventListener("click", () => { studentsModal.style.display = "none"; studentsModalBody.innerHTML = ""; });
-    async function openClassStudentsModal(cls){
-      const ids = Array.isArray(cls.students)?cls.students:[];
-      studentsModalTitle.textContent = `شاگردان کلاس: ${cls.title||cls.code||""}`;
-      studentsModalBody.innerHTML = "";
-      const res = await fetch("/api/students"); const all = await res.json();
-      const map = new Map(all.map(s => [s.id, s]));
-      if (!ids.length) { studentsModalBody.textContent = "شاگردی برای این کلاس ثبت نشده است"; studentsModal.style.display = "flex"; return; }
-      ids.forEach(sid => {
-        const st = map.get(sid) || { id:sid, name:sid };
-        const row = document.createElement("div"); row.className = "rf-plain-item";
-        const n = (st.name && String(st.name).trim()) || (st.full_name && String(st.full_name).trim()) || (st.english_name||"بدون نام");
-        const info = document.createElement("div"); info.textContent = `${n} | ${st.phone||""} ${st.student_id?`| ${st.student_id}`:""}`;
-        row.appendChild(info);
-        studentsModalBody.appendChild(row);
-      });
-      studentsModal.style.display = "flex";
-    }
