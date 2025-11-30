@@ -43,6 +43,7 @@
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px }
     .card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; background: #fafafa }
     .card .course-banner { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; display:block }
+    .course-thumb { width: 60px; max-height: 40px; object-fit: cover; border-radius: 6px; margin-left: 8px }
     .actions { display: flex; gap: 8px; margin-top: 8px }
     .rf-container { background:#fff; border:1px solid #e5e7eb; border-radius:18px; overflow:hidden; box-shadow: 0 10px 24px rgba(0,0,0,.08) }
     .rf-header { background:#0c5a98; color:#fff; padding:20px; display:flex; gap:12px; align-items:center }
@@ -256,8 +257,7 @@
             </div>
             <div class="st-form" id="studentFormPanel" style="margin-top:12px">
               <form id="studentForm">
-                <div class="rf-row"><label>نام</label><input name="name" required /></div>
-                <div class="rf-row"><label>نام خانوادگی</label><input name="last_name" required /></div>
+                <div class="rf-row"><label>نام کامل</label><input name="full_name" placeholder="مثال: علی رضائی" required /></div>
                 <div class="rf-row"><label>نام و نام خانوادگی (انگلیسی)</label><input name="english_name" /></div>
                 <div class="rf-row"><label>شناسه دانشجویی</label><input name="student_id" readonly /></div>
                 <div class="rf-row"><label>صادره از</label><input name="issuer" /></div>
@@ -760,6 +760,8 @@
           const el = studentForm.querySelector(`[name="${k}"]`);
           if (el) el.value = v || "";
         });
+        const fullEl = studentForm.querySelector('[name="full_name"]');
+        if (fullEl) fullEl.value = [data.name, data.last_name].filter(Boolean).join(" ");
         if (data.national_id && studentIdInput) {
           const raw = String(data.national_id).replace(/\D/g, "");
           if (raw.length === 10) studentIdInput.value = raw.replace(/^0+/, "");
@@ -772,12 +774,13 @@
     cancelStudentForm.addEventListener("click", closeStudentForm);
     function renderStudents(items){
       const q = (studentsSearch?.value || "").trim();
-      const filtered = q ? items.filter(x => `${x.name||""} ${x.last_name||""} ${x.phone||""} ${x.student_id||""}`.includes(q)) : items;
+      const filtered = q ? items.filter(x => `${(x.name||"")} ${(x.last_name||"")} ${(x.phone||"")} ${(x.student_id||"")}`.includes(q)) : items;
       studentsList.innerHTML = "";
       filtered.forEach(x => {
+        const full = [x.name, x.last_name].filter(Boolean).join(" ");
         const c = document.createElement("div");
         c.className = "card";
-        c.innerHTML = `${x.name || ""} ${x.last_name || ""} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
+        c.innerHTML = `${full} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
         const edit = document.createElement("button");
         edit.className = "btn btn-secondary";
         edit.textContent = "ویرایش";
@@ -798,7 +801,12 @@
     studentForm.addEventListener("submit", async e => {
       e.preventDefault();
       const fd = new FormData(studentForm);
-      const payload = Object.fromEntries(fd.entries());
+      const obj = Object.fromEntries(fd.entries());
+      const parts = String(obj.full_name||"").trim().split(/\s+/);
+      const first = parts.shift() || "";
+      const rest = parts.join(" ");
+      const payload = { ...obj, name: first, last_name: rest };
+      delete payload.full_name;
       const nraw = String(payload.national_id || "").replace(/\D/g, "");
       if (nraw.length === 10) payload.student_id = nraw.replace(/^0+/, "");
       const id = payload.id;
@@ -883,7 +891,7 @@
       const res = await fetch("/api/students");
       const students = await res.json();
       clsStudents.innerHTML = "";
-      students.forEach(st => { const label = document.createElement("label"); const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = st.id || `${st.name}`; label.appendChild(cb); label.appendChild(document.createTextNode(` ${st.name||""} ${st.last_name||""}`)); clsStudents.appendChild(label); });
+      students.forEach(st => { const label = document.createElement("label"); const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = st.id || `${st.name}`; label.appendChild(cb); const full = [st.name, st.last_name].filter(Boolean).join(" "); label.appendChild(document.createTextNode(` ${full}`)); clsStudents.appendChild(label); });
     }
     loadStudentsForClass();
     classForm.addEventListener("submit", async e => {
@@ -958,7 +966,7 @@
       const students = await stRes.json();
       const classes = await clsRes.json();
       sfStudent.innerHTML = "";
-      students.forEach(s => { const opt = document.createElement("option"); opt.value = s.id || `${s.name}`; opt.textContent = `${s.name||""} ${s.last_name||""}`; sfStudent.appendChild(opt); });
+      students.forEach(s => { const opt = document.createElement("option"); opt.value = s.id || `${s.name}`; const full = [s.name, s.last_name].filter(Boolean).join(" "); opt.textContent = full; sfStudent.appendChild(opt); });
       sfClass.innerHTML = "";
       classes.forEach(c => { const opt = document.createElement("option"); opt.value = c.code || c.id || ""; opt.textContent = `${c.code||""} - ${c.title||c.name||""}`; sfClass.appendChild(opt); });
     }
@@ -1160,7 +1168,10 @@
         const sessionsText = (typeof x.sessions_count !== 'undefined') ? ` | جلسات: ${formatFaNumber(x.sessions_count)}` : "";
         const tuitionText = (typeof x.tuition !== 'undefined') ? ` | شهریه: ${formatFaNumber(x.tuition)}` : "";
         const title = document.createElement("div");
-        title.textContent = `${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}`;
+        if (x.banner) { const img = document.createElement("img"); img.src = x.banner; img.alt = x.name||""; img.className = "course-thumb"; title.appendChild(img); }
+        const text = document.createElement("span");
+        text.textContent = `${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}`;
+        title.appendChild(text);
         const actions = document.createElement("div");
         actions.className = "actions";
         const edit = document.createElement("button");
