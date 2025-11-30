@@ -208,7 +208,9 @@ app.post("/api/classes", async (req, res) => {
     tech_course_code: b.tech_course_code || ""
   };
   if (supabase) {
-    const { data, error } = await supabase.from("classes").insert([item]).select("*").single();
+    const dbItem = { ...item };
+    delete dbItem.students;
+    const { data, error } = await supabase.from("classes").insert([dbItem]).select("*").single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, cls: data });
   }
@@ -230,11 +232,11 @@ app.put("/api/classes/:id", async (req, res) => {
       days: Array.isArray(b.days) ? b.days.join(",") : b.days,
       sessions_count: Number(b.sessions_count || 0),
       sessions: b.sessions,
-      students: Array.isArray(b.students) ? b.students : b.students,
       end_date: b.end_date,
       certificate_issue_date: b.certificate_issue_date,
       tech_course_code: b.tech_course_code
     };
+    delete updateObj.students;
     const { data, error } = await supabase.from("classes").update(updateObj).eq("id", id).select("*").single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, cls: data });
