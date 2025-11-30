@@ -692,6 +692,7 @@
             const res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
             const json = await res.json().catch(() => ({ ok:false }));
             showToast(json.ok ? "شاگرد اضافه شد" : `خطا در افزودن${json?.error?`: ${json.error}`:""}`, json.ok ? "success" : "error");
+            if (json.ok) { try { await loadStudents(); } catch {} }
           } catch { showToast("خطا در اتصال", "error"); }
         };
         const editBtn = document.createElement("button");
