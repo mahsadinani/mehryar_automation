@@ -1024,24 +1024,43 @@
     clsSessionsCount.addEventListener("input", renderSessionBoxes);
     clsCourse.addEventListener("change", () => { const s = Number(clsCourse.selectedOptions[0]?.dataset.sessions || 0); if (s>0){ clsSessionsCount.value = s; renderSessionBoxes(); } });
     function propagateSessionDates(){
-      const firstVal = document.querySelector('[name="session_date_g_1"]').value;
-      if(!firstVal) return;
+      const firstGVal = document.querySelector('[name="session_date_g_1"]').value;
+      const firstJEl = document.querySelector('[name="session_date_1"]');
       const daysChecked = Array.from(document.querySelectorAll('#clsDays input[type="checkbox"]:checked')).map(i=>i.value);
       const dayMap = { "یکشنبه":0, "دوشنبه":1, "سه‌شنبه":2, "چهارشنبه":3, "پنجشنبه":4, "جمعه":5, "شنبه":6 };
       const wanted = daysChecked.map(d=>dayMap[d]).filter(v=>v!==undefined);
-      let d = new Date(firstVal);
+      const parseJ = (val) => {
+        const v = fromFaDigits(String(val||""));
+        const m = v.match(/^\s*(\d{4})\/(\d{1,2})\/(\d{1,2})\s*$/);
+        if (!m) return null;
+        const jy = Number(m[1]), jm = Number(m[2]), jd = Number(m[3]);
+        if (!jy || jm<1 || jm>12 || jd<1 || jd>31) return null;
+        return { jy, jm, jd };
+      };
+      const jMonthCap = (jy,jm) => jm<=6?31:(jm<=11?30:29);
+      const jNextDay = (jy,jm,jd) => {
+        const cap = jMonthCap(jy,jm);
+        jd++;
+        if (jd>cap){ jd=1; jm++; if (jm>12){ jm=1; jy++; } }
+        return { jy, jm, jd };
+      };
+      let curJ = null;
+      if (firstJEl && firstJEl.value){ curJ = parseJ(firstJEl.value); }
+      if (!curJ && firstGVal){ const [jy,jm,jd] = g2j(new Date(firstGVal).getFullYear(), new Date(firstGVal).getMonth()+1, new Date(firstGVal).getDate()); curJ = { jy, jm, jd }; }
+      if (!curJ) return;
       const n = Math.max(1, Number(clsSessionsCount.value||1));
       let count = 1;
       while(count < n){
-        d.setDate(d.getDate()+1);
-        if (wanted.includes(d.getDay())){
+        curJ = jNextDay(curJ.jy, curJ.jm, curJ.jd);
+        const gParts = j2g(curJ.jy, curJ.jm, curJ.jd);
+        const gd = new Date(gParts[0], gParts[1]-1, gParts[2]);
+        if (wanted.includes(gd.getDay())){
           count++;
           const idx = count;
           const inp = document.querySelector(`[name="session_date_${idx}"]`);
           const ginp = document.querySelector(`[name="session_date_g_${idx}"]`);
-          const jyjmjd = g2j(d.getFullYear(), d.getMonth()+1, d.getDate());
-          if (inp) inp.value = `${jyjmjd[0]}/${pad2(jyjmjd[1])}/${pad2(jyjmjd[2])}`;
-          if (ginp) ginp.value = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+          if (inp) inp.value = `${curJ.jy}/${pad2(curJ.jm)}/${pad2(curJ.jd)}`;
+          if (ginp) ginp.value = `${gParts[0]}-${pad2(gParts[1])}-${pad2(gParts[2])}`;
         }
       }
     }
@@ -1207,7 +1226,7 @@
       const res = await fetch("/api/classes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (json?.ok) { await postWebhook("class_submit", json.cls || payload); }
-      showToast(json.ok ? "کلاس ثبت شد" : "خطا در ثبت کلاس", json.ok ? "success" : "error");
+      showToast(json.ok ? "کلاس ثبت شد" : (`خطا در ثبت کلاس${json?.error?`: ${json.error}`:""}`), json.ok ? "success" : "error");
       closeClassForm();
       loadClasses();
     });

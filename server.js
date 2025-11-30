@@ -208,8 +208,8 @@ app.post("/api/classes", async (req, res) => {
     tech_course_code: b.tech_course_code || ""
   };
   if (supabase) {
-  const { data, error } = await supabase.from("classes").insert([item]).select("*").single();
-    if (error) return res.status(500).json({ ok: false });
+    const { data, error } = await supabase.from("classes").insert([item]).select("*").single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, cls: data });
   }
   state.classes.push(item);
