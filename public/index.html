@@ -338,9 +338,27 @@
           <div class="rf-row"><label>نام دوره</label>
             <select name="course_id" id="clsCourse"></select>
           </div>
-          <div class="rf-row"><label>تاریخ شروع کلاس</label><input name="start" type="date" /></div>
-          <div class="rf-row"><label>تاریخ پایان دوره</label><input name="end_date" type="date" /></div>
-          <div class="rf-row"><label>تاریخ صدور مدرک</label><input name="certificate_issue_date" type="date" /></div>
+          <div class="rf-row"><label>تاریخ شروع کلاس</label>
+            <div style="display:flex; gap:8px; align-items:center">
+              <input id="clsStartJ" placeholder="روز/ماه/سال شمسی" />
+              <div id="clsStartDrop" class="dropdown"></div>
+              <input name="start" id="clsStartG" type="hidden" />
+            </div>
+          </div>
+          <div class="rf-row"><label>تاریخ پایان دوره</label>
+            <div style="display:flex; gap:8px; align-items:center">
+              <input id="clsEndJ" placeholder="روز/ماه/سال شمسی" />
+              <div id="clsEndDrop" class="dropdown"></div>
+              <input name="end_date" id="clsEndG" type="hidden" />
+            </div>
+          </div>
+          <div class="rf-row"><label>تاریخ صدور مدرک</label>
+            <div style="display:flex; gap:8px; align-items:center">
+              <input id="clsCertJ" placeholder="روز/ماه/سال شمسی" />
+              <div id="clsCertDrop" class="dropdown"></div>
+              <input name="certificate_issue_date" id="clsCertG" type="hidden" />
+            </div>
+          </div>
           <div class="rf-row"><label>مدرس</label>
             <div style="display:flex; gap:8px; align-items:center">
               <select name="teacher" id="clsTeacher"></select>
@@ -367,6 +385,11 @@
           <div class="rf-row"><label>تعداد جلسات</label><input name="sessions_count" id="clsSessionsCount" type="number" min="1" value="1" /></div>
           <div class="rf-row"><label>لیست شاگردان</label>
             <div id="clsStudents" style="display:flex; gap:8px; flex-wrap:wrap"></div>
+            <div style="display:flex; gap:8px; margin-top:8px">
+              <input id="clsNewStudentName" placeholder="نام شاگرد جدید" />
+              <input id="clsNewStudentPhone" placeholder="شماره تماس" />
+              <button type="button" id="clsAddStudentQuick" class="btn btn-secondary">افزودن شاگرد</button>
+            </div>
           </div>
           <div class="rf-row"><label>جلسات</label>
             <div id="clsSessions" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px"></div>
@@ -380,16 +403,29 @@
       </div>
       <div class="list">
         <h3>ثبت حضور</h3>
-        <form id="attendanceForm">
-          <input name="classId" placeholder="شناسه کلاس" required />
-          <input name="studentId" placeholder="شناسه شاگرد" required />
-          <select name="present">
-            <option value="true">حاضر</option>
-            <option value="false">غایب</option>
-          </select>
-          <button type="submit" class="btn">ثبت</button>
-        </form>
-        <div id="attendanceResult"></div>
+        <button id="openAttendanceForm" class="btn btn-secondary" type="button">فرم ثبت حضور</button>
+      </div>
+    </section>
+
+    <section id="AttendanceForm" class="rf">
+      <div class="rf-container">
+        <div class="rf-header">
+          <div class="rf-header-icon"></div>
+          <div>
+            <h2>ثبت حضور</h2>
+            <p>انتخاب کلاس و ثبت حضور جلسات به‌ازای هر شاگرد</p>
+          </div>
+        </div>
+        <div class="rf-fields">
+          <div class="rf-row"><label>کلاس</label>
+            <select id="attClass"></select>
+          </div>
+          <div id="attGrid"></div>
+          <div class="actions">
+            <button id="attSubmit" class="btn">ثبت حضور</button>
+            <button id="attCancel" class="btn btn-secondary" type="button">انصراف</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -912,7 +948,7 @@
     const classForm = document.getElementById("classForm");
     const cancelClassForm = document.getElementById("cancelClassForm");
     const classesSearch = document.getElementById("classesSearch");
-    function openClassForm(){ classForm.reset(); classFormPanel.style.display = "block"; renderSessionBoxes(); loadTeacherOptions(); }
+    function openClassForm(){ classForm.reset(); classFormPanel.style.display = "block"; renderSessionBoxes(); loadTeacherOptions(); attachJalaliPickers(); }
     function closeClassForm(){ classFormPanel.style.display = "none"; }
     addClassBtn.addEventListener("click", openClassForm);
     cancelClassForm.addEventListener("click", closeClassForm);
@@ -941,6 +977,40 @@
     }
     const clsSessionsCount = document.getElementById("clsSessionsCount");
     const clsSessions = document.getElementById("clsSessions");
+    function formatFa(n){ return String(n).replace(/[0-9]/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]); }
+    function pad2(n){ return String(n).padStart(2, "0"); }
+    function attachJalaliPickers(){
+      const defs = [
+        { j: document.getElementById("clsStartJ"), d: document.getElementById("clsStartDrop"), g: document.getElementById("clsStartG") },
+        { j: document.getElementById("clsEndJ"), d: document.getElementById("clsEndDrop"), g: document.getElementById("clsEndG") },
+        { j: document.getElementById("clsCertJ"), d: document.getElementById("clsCertDrop"), g: document.getElementById("clsCertG") }
+      ];
+      defs.forEach(def => {
+        if (!def.j || !def.d || !def.g) return;
+        const state = { jy: curJ.jy, jm: curJ.jm };
+        function render(){
+          def.d.innerHTML = "";
+          const header = document.createElement("div"); header.style.display="flex"; header.style.justifyContent="space-between"; header.style.alignItems="center"; header.style.padding="8px";
+          const prev = document.createElement("button"); prev.className="btn btn-secondary"; prev.textContent="<"; prev.onclick = () => { state.jm--; if (state.jm<1){ state.jm=12; state.jy--; } render(); };
+          const next = document.createElement("button"); next.className="btn btn-secondary"; next.textContent=">"; next.onclick = () => { state.jm++; if (state.jm>12){ state.jm=1; state.jy++; } render(); };
+          const title = document.createElement("div"); const mi = Math.max(1, Math.min(12, Number(state.jm||1))) - 1; title.textContent = `${monthsFa[mi]} ${formatFa(state.jy)}`;
+          header.appendChild(prev); header.appendChild(title); header.appendChild(next);
+          def.d.appendChild(header);
+          const grid = document.createElement("div"); grid.style.display="grid"; grid.style.gridTemplateColumns="repeat(7, 1fr)"; grid.style.gap="6px"; grid.style.padding="8px";
+          weekDays.forEach(w => { const c=document.createElement("div"); c.textContent=w; c.style.fontWeight="600"; c.style.textAlign="center"; grid.appendChild(c); });
+          const firstG = j2g(state.jy, state.jm, 1); const firstDay = new Date(firstG[0], firstG[1]-1, firstG[2]).getDay(); const offset = (firstDay + 1) % 7;
+          for(let i=0;i<offset;i++){ const e=document.createElement("div"); grid.appendChild(e); }
+          const ml = jMonthLen(state.jy, state.jm);
+          for(let d=1; d<=ml; d++){
+            const cell = document.createElement("button"); cell.className="btn btn-secondary"; cell.style.padding="6px"; cell.textContent = formatFa(pad2(d));
+            cell.onclick = () => { def.j.value = `${formatFa(pad2(d))}/${formatFa(pad2(state.jm))}/${formatFa(state.jy)}`; const [gy,gm,gd]=j2g(state.jy, state.jm, d); def.g.value = `${gy}-${pad2(gm)}-${pad2(gd)}`; def.d.style.display="none"; };
+            grid.appendChild(cell);
+          }
+          def.d.appendChild(grid);
+        }
+        def.j.addEventListener("click", () => { const vis = def.d.style.display === "block"; def.d.style.display = vis ? "none" : "block"; render(); });
+      });
+    }
     let makeupList = [];
     function renderSessionBoxes(){
       const n = Math.max(1, Number(clsSessionsCount.value || 1));
@@ -1001,6 +1071,16 @@
       students.forEach(st => { const label = document.createElement("label"); const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = st.id || `${st.name}`; label.appendChild(cb); const full = (st.full_name && String(st.full_name).trim()) || [st.name, st.last_name].filter(Boolean).join(" ") || (st.english_name||"بدون نام"); label.appendChild(document.createTextNode(` ${full}`)); clsStudents.appendChild(label); });
     }
     loadStudentsForClass();
+    const clsAddStudentQuick = document.getElementById("clsAddStudentQuick");
+    clsAddStudentQuick?.addEventListener("click", async () => {
+      const name = document.getElementById("clsNewStudentName")?.value||"";
+      const phone = document.getElementById("clsNewStudentPhone")?.value||"";
+      if (!name.trim()) { showToast("نام را وارد کنید", "error"); return; }
+      const res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ full_name: name, name: name.split(/\s+/)[0]||name, last_name: name.split(/\s+/).slice(1).join(" ")||"", phone }) });
+      const json = await res.json().catch(()=>({ ok:false }));
+      if (json.ok) { await loadStudentsForClass(); const id = json.student?.id || ""; const cb = Array.from(clsStudents.querySelectorAll('input[type="checkbox"]')).find(i => i.value === id); if (cb) cb.checked = true; showToast("شاگرد اضافه شد", "success"); }
+      else showToast("خطا در افزودن شاگرد", "error");
+    });
     classForm.addEventListener("submit", async e => {
       e.preventDefault();
       const fd = new FormData(classForm);
@@ -1073,18 +1153,54 @@
       renderClasses(items);
       showToast("کلاس‌ها بارگذاری شد", "success");
     }
-    const attendanceForm = document.getElementById("attendanceForm");
-    const attendanceResult = document.getElementById("attendanceResult");
-    attendanceForm.addEventListener("submit", async e => {
-      e.preventDefault();
-      const fd = new FormData(attendanceForm);
-      const payload = Object.fromEntries(fd.entries());
-      payload.present = payload.present === "true";
-      const res = await fetch("/api/classes/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const json = await res.json();
-      attendanceResult.textContent = json.ok ? "ثبت شد" : "خطا";
-      showToast(json.ok ? "حضور ثبت شد" : "خطا در ثبت حضور", json.ok ? "success" : "error");
+    const openAttendanceForm = document.getElementById("openAttendanceForm");
+    openAttendanceForm?.addEventListener("click", () => { activate("AttendanceForm"); renderAttendanceClasses(); });
+    const attClass = document.getElementById("attClass");
+    const attGrid = document.getElementById("attGrid");
+    const attSubmit = document.getElementById("attSubmit");
+    const attCancel = document.getElementById("attCancel");
+    async function renderAttendanceClasses(){
+      const res = await fetch("/api/classes"); const classes = await res.json();
+      attClass.innerHTML = "";
+      classes.forEach(c => { const opt = document.createElement("option"); opt.value = c.id || c.code || ""; opt.textContent = `${c.title||""} | ${c.code||""}`; opt.dataset.sessions = JSON.stringify(c.sessions||[]); opt.dataset.students = JSON.stringify(c.students||[]); attClass.appendChild(opt); });
+      renderAttendanceGrid();
+    }
+    function renderAttendanceGrid(){
+      attGrid.innerHTML = "";
+      const sel = attClass.selectedOptions[0]; if (!sel) return;
+      const sessions = JSON.parse(sel.dataset.sessions||"[]");
+      const studentsIds = JSON.parse(sel.dataset.students||"[]");
+      const header = document.createElement("div"); header.className = "rf-row"; header.textContent = `جلسات: ${sessions.map(s=>s.index).join(", ")}`; attGrid.appendChild(header);
+      Promise.resolve(fetch("/api/students").then(r=>r.json())).then(students => {
+        const map = new Map(students.map(s => [s.id, s]));
+        studentsIds.forEach(sid => {
+          const st = map.get(sid) || { id: sid, name: sid };
+          const row = document.createElement("div"); row.className = "rf-row";
+          const label = document.createElement("div"); const full = (st.full_name && String(st.full_name).trim()) || [st.name, st.last_name].filter(Boolean).join(" ") || (st.english_name||"بدون نام"); label.textContent = full; row.appendChild(label);
+          const boxes = document.createElement("div"); boxes.style.display = "flex"; boxes.style.gap = "8px";
+          sessions.forEach(s => { const cb = document.createElement("input"); cb.type="checkbox"; cb.name = `att_${st.id}_${s.index}`; boxes.appendChild(cb); });
+          row.appendChild(boxes);
+          attGrid.appendChild(row);
+        });
+      });
+    }
+    attClass?.addEventListener("change", renderAttendanceGrid);
+    attSubmit?.addEventListener("click", async () => {
+      const sel = attClass.selectedOptions[0]; if (!sel) return;
+      const classId = sel.value;
+      const sessions = JSON.parse(sel.dataset.sessions||"[]");
+      const inputs = attGrid.querySelectorAll('input[type="checkbox"]');
+      const calls = [];
+      inputs.forEach(inp => {
+        const m = inp.name.match(/^att_(.+)_(\d+)$/); if (!m) return;
+        const studentId = m[1]; const session_index = Number(m[2]);
+        const present = !!inp.checked;
+        calls.push(fetch("/api/classes/attendance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId, studentId, present, session_index }) }));
+      });
+      await Promise.all(calls);
+      showToast("حضور ثبت شد", "success");
     });
+    attCancel?.addEventListener("click", () => { activate("ClassesDashboard"); });
     const addStudentFinanceBtn = document.getElementById("addStudentFinanceBtn");
     const studentFinanceFormPanel = document.getElementById("studentFinanceFormPanel");
     const studentFinanceForm = document.getElementById("studentFinanceForm");

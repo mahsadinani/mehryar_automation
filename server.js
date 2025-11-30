@@ -201,12 +201,13 @@ app.post("/api/classes", async (req, res) => {
     days: Array.isArray(b.days) ? b.days.join(",") : (b.days || ""),
     sessions_count: Number(b.sessions_count || 0),
     sessions: b.sessions || [],
+    students: Array.isArray(b.students) ? b.students : [],
     end_date: b.end_date || null,
     certificate_issue_date: b.certificate_issue_date || null,
     tech_course_code: b.tech_course_code || ""
   };
   if (supabase) {
-    const { data, error } = await supabase.from("classes").insert([item]).select("*").single();
+  const { data, error } = await supabase.from("classes").insert([item]).select("*").single();
     if (error) return res.status(500).json({ ok: false });
     return res.json({ ok: true, cls: data });
   }
@@ -228,6 +229,7 @@ app.put("/api/classes/:id", async (req, res) => {
       days: Array.isArray(b.days) ? b.days.join(",") : b.days,
       sessions_count: Number(b.sessions_count || 0),
       sessions: b.sessions,
+      students: Array.isArray(b.students) ? b.students : b.students,
       end_date: b.end_date,
       certificate_issue_date: b.certificate_issue_date,
       tech_course_code: b.tech_course_code
@@ -262,9 +264,12 @@ app.post("/api/teachers", async (req, res) => {
   const b = req.body || {};
   const item = { id: Date.now().toString(), created_at: new Date().toISOString(), name: b.name || "", phone: b.phone || "", national_id: b.national_id || "", skills: b.skills || "", note: b.note || "" };
   if (supabase) {
-    const { data, error } = await supabase.from("teachers").insert([item]).select("*").single();
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true, teacher: data });
+    const { data, error } = await supabase.from("teachers").insert([item]).select("*").maybeSingle();
+    if (error) {
+      state.teachers = state.teachers || []; state.teachers.push(item);
+      return res.json({ ok: true, teacher: item });
+    }
+    return res.json({ ok: true, teacher: data || (Array.isArray(data) ? data[0] : data) });
   }
   state.teachers = state.teachers || []; state.teachers.push(item);
   res.json({ ok: true, teacher: item });
@@ -272,9 +277,13 @@ app.post("/api/teachers", async (req, res) => {
 app.put("/api/teachers/:id", async (req, res) => {
   const id = req.params.id; const b = req.body || {};
   if (supabase) {
-    const { data, error } = await supabase.from("teachers").update({ name: b.name, phone: b.phone, national_id: b.national_id, skills: b.skills, note: b.note }).eq("id", id).select("*").single();
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true, teacher: data });
+    const { data, error } = await supabase.from("teachers").update({ name: b.name, phone: b.phone, national_id: b.national_id, skills: b.skills, note: b.note }).eq("id", id).select("*").maybeSingle();
+    if (error) {
+      const idx = (state.teachers||[]).findIndex(t => t.id === id);
+      if (idx >= 0) { state.teachers[idx] = { ...state.teachers[idx], ...b }; return res.json({ ok: true, teacher: state.teachers[idx] }); }
+      return res.status(500).json({ ok: false, error: error.message });
+    }
+    return res.json({ ok: true, teacher: data || (Array.isArray(data) ? data[0] : data) });
   }
   res.json({ ok: true });
 });
@@ -288,16 +297,20 @@ app.delete("/api/teachers/:id", async (req, res) => {
   res.json({ ok: true });
 });
 app.post("/api/classes/attendance", async (req, res) => {
-  const { classId, studentId, present } = req.body || {};
+  const { classId, studentId, present, session_index } = req.body || {};
   if (!classId || !studentId) return res.status(400).json({ ok: false });
   if (supabase) {
-    const row = { class_id: classId, student_id: studentId, present: !!present, updated_at: new Date().toISOString() };
-    const { data, error } = await supabase.from("attendance").upsert([row], { onConflict: "class_id,student_id" }).select("*").single();
+    const row = { class_id: classId, student_id: studentId, present: !!present, session_index: Number(session_index||0), updated_at: new Date().toISOString() };
+    const { data, error } = await supabase.from("attendance").upsert([row], { onConflict: "class_id,student_id,session_index" }).select("*").maybeSingle();
     if (error) return res.status(500).json({ ok: false });
-    return res.json({ ok: true, attendance: data });
+    return res.json({ ok: true, attendance: data || (Array.isArray(data) ? data[0] : data) });
   }
   const key = `${classId}:${studentId}`;
-  state.attendance[key] = { present: !!present, updatedAt: new Date().toISOString() };
+  const arr = state.attendance[key] || [];
+  const idx = arr.findIndex(a => Number(a.session_index||0) === Number(session_index||0));
+  const row = { present: !!present, session_index: Number(session_index||0), updatedAt: new Date().toISOString() };
+  if (idx >= 0) arr[idx] = row; else arr.push(row);
+  state.attendance[key] = arr;
   res.json({ ok: true, attendance: state.attendance[key] });
 });
 app.get("/api/finance/transactions", async (req, res) => {
@@ -444,17 +457,13 @@ app.get("/api/students", async (req, res) => {
 });
 app.post("/api/students", async (req, res) => {
   const b = req.body || {};
-  const item = {
-    id: Date.now().toString(),
-    created_at: new Date().toISOString(),
-    name: b.name || "",
-    phone: b.phone || "",
-    status: b.status || "active"
-  };
-  ["last_name","gender","father_name","national_id","address","emergency_phone","english_name","student_id","issuer"].forEach(k => {
-    if (b[k] !== undefined) item[k] = b[k] || "";
-  });
-  const nidRaw = (item.national_id || "").replace(/\D/g, "");
+  const base = { id: Date.now().toString(), created_at: new Date().toISOString() };
+  const item = { ...b, ...base };
+  item.name = (item.name || "").trim();
+  item.last_name = (item.last_name || "").trim();
+  item.phone = (item.phone || "").trim();
+  item.status = item.status || "active";
+  const nidRaw = String(item.national_id || "").replace(/\D/g, "");
   if (nidRaw.length === 10) item.student_id = nidRaw.replace(/^0+/, "");
   if (supabase) {
     let payload = { ...item };
@@ -477,10 +486,8 @@ app.put("/api/students/:id", async (req, res) => {
   const id = req.params.id;
   const b = req.body || {};
   if (supabase) {
-    const updateObj = {};
-    ["name","last_name","gender","father_name","national_id","address","phone","emergency_phone","english_name","issuer","status"].forEach(k => { if (b[k] !== undefined) updateObj[k] = b[k]; });
-    updateObj.student_id = (() => { const r = (b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || updateObj.student_id || ""); })();
-    let payload = { ...updateObj };
+    let payload = { ...b };
+    payload.student_id = (() => { const r = String(b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || payload.student_id || ""); })();
     for (let i = 0; i < 8; i++) {
       const { data, error } = await supabase.from("students").update(payload).eq("id", id).select("*").maybeSingle();
       if (!error) return res.json({ ok: true, student: data || (Array.isArray(data) ? data[0] : data) });
