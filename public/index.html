@@ -818,11 +818,11 @@
       } else {
         res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       }
-      const json = await res.json();
+      const json = await res.json().catch(()=>({ ok:false }));
       if (json?.ok) { await postWebhook(id?"student_update":"student_submit", json.student || payload); }
-      showToast(id ? "شاگرد به‌روزرسانی شد" : "شاگرد اضافه شد", json.ok ? "success" : "error");
-      closeStudentForm();
-      loadStudents();
+      const msg = json.ok ? (id ? "شاگرد به‌روزرسانی شد" : "شاگرد اضافه شد") : `خطا در ثبت${json?.error?`: ${json.error}`:""}`;
+      showToast(msg, json.ok ? "success" : "error");
+      if (json.ok) { closeStudentForm(); loadStudents(); }
     });
 
     // Auto-fill student_id from national_id, enforce 10 digits and trim leading zeros

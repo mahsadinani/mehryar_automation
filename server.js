@@ -363,7 +363,7 @@ app.post("/api/calendar/events", (req, res) => {
 app.get("/api/students", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("students").select("*").order("created_at", { ascending: false });
-    if (error) return res.status(500).json({ ok: false });
+    if (error) return res.json([]);
     return res.json(data || []);
   }
   res.json(state.students);
