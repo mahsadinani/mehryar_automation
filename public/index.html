@@ -1100,6 +1100,7 @@
         if (parts.length===3 && parts[0] && parts[1] && parts[2]){
           const conv = j2g(parts[2], parts[1], parts[0]);
           firstG.value = `${conv[0]}-${pad2(conv[1])}-${pad2(conv[2])}`;
+          firstG.dispatchEvent(new Event("change"));
         }
       }
       const first = document.querySelector('[name="session_date_g_1"]');
@@ -1125,7 +1126,7 @@
         const ml = jMonthLen(state.jy, state.jm);
         for(let d=1; d<=ml; d++){
           const cell = document.createElement("button"); cell.className="btn btn-secondary"; cell.style.padding="6px"; cell.textContent = pad2(d);
-          cell.onclick = () => { jInput.value = `${pad2(d)}/${pad2(state.jm)}/${state.jy}`; const gParts = j2g(state.jy, state.jm, d); gInput.value = `${gParts[0]}-${pad2(gParts[1])}-${pad2(gParts[2])}`; container.style.display="none"; };
+          cell.onclick = () => { jInput.value = `${pad2(d)}/${pad2(state.jm)}/${state.jy}`; const gParts = j2g(state.jy, state.jm, d); gInput.value = `${gParts[0]}-${pad2(gParts[1])}-${pad2(gParts[2])}`; gInput.dispatchEvent(new Event("change")); container.style.display="none"; };
           grid.appendChild(cell);
         }
       }
