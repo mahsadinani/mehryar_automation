@@ -448,9 +448,36 @@ app.put("/api/courses/:id", async (req, res) => {
   const id = req.params.id;
   const b = req.body || {};
   if (supabase) {
-    const { data, error } = await supabase.from("courses").update({ name: b.name, teacher: b.teacher, tuition: Number(b.tuition || 0), hour: b.hour || "", sessions_count: Number(b.sessions_count || 0), banner: b.banner }).eq("id", id).select("*").single();
-    if (error) return res.status(500).json({ ok: false });
+    const updateObj = {};
+    if (b.name !== undefined) updateObj.name = b.name;
+    if (b.teacher !== undefined) updateObj.teacher = b.teacher;
+    if (b.tuition !== undefined) updateObj.tuition = Number(b.tuition || 0);
+    if (b.hour !== undefined) updateObj.hour = b.hour || "";
+    if (b.sessions_count !== undefined) updateObj.sessions_count = Number(b.sessions_count || 0);
+    if (b.banner !== undefined) updateObj.banner = b.banner;
+    const { data, error } = await supabase.from("courses").update(updateObj).eq("id", id).select("*").single();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, course: data });
+  }
+  res.json({ ok: true });
+});
+app.delete("/api/courses/:id", async (req, res) => {
+  const id = req.params.id;
+  if (supabase) {
+    const { error } = await supabase.from("courses").delete().eq("id", id);
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true });
+  }
+  const idx = state.courses?.findIndex?.(c => c.id === id) ?? -1;
+  if (idx >= 0) { state.courses.splice(idx, 1); return res.json({ ok: true }); }
+  res.status(404).json({ ok: false });
+});
+app.delete("/api/tech-courses/:id", async (req, res) => {
+  const id = req.params.id;
+  if (supabase) {
+    const { error } = await supabase.from("tech_courses").delete().eq("id", id);
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true });
   }
   res.json({ ok: true });
 });

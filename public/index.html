@@ -192,7 +192,7 @@
               <button id="addTechCourseBtn" class="btn">افزودن دوره فنی</button>
             </div>
             <div style="margin-bottom:8px"><input id="techCoursesSearch" placeholder="جستجوی دوره فنی..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
-            <div id="techCoursesList" class="grid"></div>
+            <div id="techCoursesList"></div>
             <div id="techCourseFormPanel" style="display:none; margin-top:12px">
               <form id="techCourseForm">
                 <div class="rf-row"><label>نام دوره (فارسی)</label><input name="name_fa" required /></div>
@@ -214,7 +214,7 @@
               <button id="addSchoolCourseBtn" class="btn">افزودن دوره آموزشگاهی</button>
             </div>
             <div style="margin-bottom:8px"><input id="schoolCoursesSearch" placeholder="جستجوی دوره آموزشگاهی..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
-            <div id="schoolCoursesList" class="grid"></div>
+            <div id="schoolCoursesList"></div>
             <div id="schoolCourseFormPanel" style="display:none; margin-top:12px">
               <form id="schoolCourseForm">
                 <div class="rf-row"><label>نام دوره</label><input name="name" required /></div>
@@ -1082,16 +1082,32 @@
       techCoursesList.innerHTML = "";
       filtered.forEach(x=>{
         const c = document.createElement("div");
-        c.className = "card";
+        c.className = "rf-plain-item";
         const tuition = typeof x.tuition !== 'undefined' ? ` | شهریه: ${formatFaNumber(x.tuition)}` : "";
         const hours = typeof x.hours !== 'undefined' ? ` | ساعت: ${formatFaNumber(x.hours)}` : "";
-        c.innerHTML = `${x.name_fa||""} | ${x.name_en||""} ${x.code?`| ${x.code}`:""}${hours}${tuition}`;
+        const title = document.createElement("div");
+        title.textContent = `${x.name_fa||""} | ${x.name_en||""} ${x.code?`| ${x.code}`:""}${hours}${tuition}`;
+        const actions = document.createElement("div");
+        actions.className = "actions";
         const edit = document.createElement("button");
         edit.className = "btn btn-secondary";
         edit.textContent = "ویرایش";
-        edit.style.marginTop = "8px";
         edit.onclick = ()=>openTechCourseForm(x);
-        c.appendChild(edit);
+        const del = document.createElement("button");
+        del.className = "btn btn-secondary";
+        del.textContent = "حذف";
+        del.onclick = async ()=>{
+          const id = x.id || x.code;
+          const res = await fetch(`/api/tech-courses/${id}`, { method: "DELETE" });
+          const json = await res.json().catch(()=>({ ok:false }));
+          showToast(json.ok?"دوره حذف شد":"خطا در حذف", json.ok?"success":"error");
+          loadTechCourses();
+          loadCourseOptions();
+        };
+        actions.appendChild(edit);
+        actions.appendChild(del);
+        c.appendChild(title);
+        c.appendChild(actions);
         techCoursesList.appendChild(c);
       });
     }
@@ -1139,18 +1155,33 @@
       schoolCoursesList.innerHTML = "";
       filtered.forEach(x=>{
         const c = document.createElement("div");
-        c.className = "card";
+        c.className = "rf-plain-item";
         const hourText = x.hour ? ` | ساعت: ${formatFaNumber(x.hour)}` : "";
         const sessionsText = (typeof x.sessions_count !== 'undefined') ? ` | جلسات: ${formatFaNumber(x.sessions_count)}` : "";
         const tuitionText = (typeof x.tuition !== 'undefined') ? ` | شهریه: ${formatFaNumber(x.tuition)}` : "";
-        const bannerHtml = x.banner ? `<img class="course-banner" src="${x.banner}" alt="${x.name||""}" />` : "";
-        c.innerHTML = `${bannerHtml}<div>${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}</div>`;
+        const title = document.createElement("div");
+        title.textContent = `${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}`;
+        const actions = document.createElement("div");
+        actions.className = "actions";
         const edit = document.createElement("button");
         edit.className = "btn btn-secondary";
         edit.textContent = "ویرایش";
-        edit.style.marginTop = "8px";
         edit.onclick = ()=>openSchoolCourseForm(x);
-        c.appendChild(edit);
+        const del = document.createElement("button");
+        del.className = "btn btn-secondary";
+        del.textContent = "حذف";
+        del.onclick = async ()=>{
+          const id = x.id || x.name;
+          const res = await fetch(`/api/courses/${id}`, { method: "DELETE" });
+          const json = await res.json().catch(()=>({ ok:false }));
+          showToast(json.ok?"دوره حذف شد":"خطا در حذف", json.ok?"success":"error");
+          loadSchoolCourses();
+          loadCourseOptions();
+        };
+        actions.appendChild(edit);
+        actions.appendChild(del);
+        c.appendChild(title);
+        c.appendChild(actions);
         schoolCoursesList.appendChild(c);
       });
     }
