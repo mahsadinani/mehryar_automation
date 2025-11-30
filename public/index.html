@@ -863,7 +863,7 @@
       const filtered = q ? items.filter(x => `${(x.full_name||"")} ${(x.name||"")} ${(x.last_name||"")} ${(x.phone||"")} ${(x.student_id||"")}`.includes(q)) : items;
       studentsList.innerHTML = "";
       filtered.forEach(x => {
-        const full = (x.full_name && String(x.full_name).trim()) || [x.name, x.last_name].filter(Boolean).join(" ") || (x.english_name||"");
+        const full = (x.name && String(x.name).trim()) || (x.full_name && String(x.full_name).trim()) || (x.english_name||"");
         const title = full || "بدون نام";
         const c = document.createElement("div");
         c.className = "rf-plain-item";
@@ -871,6 +871,7 @@
         info.textContent = `${title} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
         const actions = document.createElement("div");
         actions.className = "actions";
+        actions.style.marginTop = "0";
         const edit = document.createElement("button");
         edit.className = "btn btn-secondary";
         edit.textContent = "ویرایش";
