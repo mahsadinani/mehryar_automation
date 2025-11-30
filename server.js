@@ -197,7 +197,7 @@ app.post("/api/classes", async (req, res) => {
     teacher: b.teacher || "",
     start: b.start || null,
     room: b.room || "",
-    code: b.code || "",
+    code: (b.code && String(b.code).trim()) || `CLS-${Date.now()}`,
     time: b.time || "",
     days: Array.isArray(b.days) ? b.days.join(",") : (b.days || ""),
     sessions_count: Number(b.sessions_count || 0),

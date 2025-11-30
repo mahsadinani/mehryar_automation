@@ -1020,23 +1020,26 @@
       for(let i=1;i<=n;i++){
         const box = document.createElement("div");
         box.className = "card";
-        const di = document.createElement("input"); di.type = "date"; di.name = `session_date_${i}`;
+        const di = document.createElement("input"); di.type = "text"; di.name = `session_date_${i}`; di.placeholder = "روز/ماه/سال";
+        const gi = document.createElement("input"); gi.type = "hidden"; gi.name = `session_date_g_${i}`;
+        const drop = document.createElement("div"); drop.id = `sessionDrop_${i}`; drop.style.display = "none";
         const c1 = document.createElement("label");
         const c1i = document.createElement("input"); c1i.type = "checkbox"; c1i.name = `session_cancel_${i}`; c1.appendChild(c1i); c1.appendChild(document.createTextNode(" کنسلی جلسه"));
         box.appendChild(document.createTextNode(`جلسه ${i}`));
         box.appendChild(document.createElement("br"));
         box.appendChild(di);
+        box.appendChild(drop);
+        box.appendChild(gi);
         box.appendChild(document.createElement("br"));
         box.appendChild(c1);
         clsSessions.appendChild(box);
       }
-      const first = clsSessions.querySelector('[name="session_date_1"]');
-      if (first) first.addEventListener('change', propagateSessionDates);
+      attachSessionJalaliPickers();
     }
     clsSessionsCount.addEventListener("input", renderSessionBoxes);
     clsCourse.addEventListener("change", () => { const s = Number(clsCourse.selectedOptions[0]?.dataset.sessions || 0); if (s>0){ clsSessionsCount.value = s; renderSessionBoxes(); } });
     function propagateSessionDates(){
-      const firstVal = document.querySelector('[name="session_date_1"]').value;
+      const firstVal = document.querySelector('[name="session_date_g_1"]').value;
       if(!firstVal) return;
       const daysChecked = Array.from(document.querySelectorAll('#clsDays input[type="checkbox"]:checked')).map(i=>i.value);
       const dayMap = { "یکشنبه":0, "دوشنبه":1, "سه‌شنبه":2, "چهارشنبه":3, "پنجشنبه":4, "جمعه":5, "شنبه":6 };
@@ -1050,7 +1053,10 @@
           count++;
           const idx = count;
           const inp = document.querySelector(`[name="session_date_${idx}"]`);
-          if (inp) inp.value = d.toISOString().slice(0,10);
+          const ginp = document.querySelector(`[name="session_date_g_${idx}"]`);
+          const jyjmjd = g2j(d.getFullYear(), d.getMonth()+1, d.getDate());
+          if (inp) inp.value = `${pad2(jyjmjd[2])}/${pad2(jyjmjd[1])}/${jyjmjd[0]}`;
+          if (ginp) ginp.value = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
         }
       }
     }
@@ -1059,11 +1065,72 @@
       const idx = makeupList.length + 1;
       const box = document.createElement("div"); box.className = "card";
       box.appendChild(document.createTextNode(`جلسه جبرانی ${idx}`)); box.appendChild(document.createElement("br"));
-      const di = document.createElement("input"); di.type = "date"; di.name = `makeup_date_${idx}`; box.appendChild(di); box.appendChild(document.createElement("br"));
+      const di = document.createElement("input"); di.type = "text"; di.name = `makeup_date_${idx}`; di.placeholder = "روز/ماه/سال"; box.appendChild(di);
+      const drop = document.createElement("div"); drop.id = `makeupDrop_${idx}`; drop.style.display = "none"; box.appendChild(drop);
+      const gi = document.createElement("input"); gi.type = "hidden"; gi.name = `makeup_date_g_${idx}`; box.appendChild(gi);
+      box.appendChild(document.createElement("br"));
       const c1 = document.createElement("label"); const c1i = document.createElement("input"); c1i.type = "checkbox"; c1i.name = `makeup_cancel_${idx}`; c1.appendChild(c1i); c1.appendChild(document.createTextNode(" کنسلی جلسه")); box.appendChild(c1);
       clsSessions.appendChild(box);
       makeupList.push(idx);
+      attachSessionJalaliPickers();
     });
+
+    function attachSessionJalaliPickers(){
+      const n = Math.max(1, Number(clsSessionsCount.value || 1));
+      for(let i=1;i<=n;i++){
+        const j = document.querySelector(`[name="session_date_${i}"]`);
+        const g = document.querySelector(`[name="session_date_g_${i}"]`);
+        const dEl = document.getElementById(`sessionDrop_${i}`);
+        if (j && g && dEl){
+          j.addEventListener("click", () => { const vis = dEl.style.display === "block"; dEl.style.display = vis ? "none" : "block"; renderPicker(dEl, j, g); });
+        }
+      }
+      makeupList.forEach(idx => {
+        const j = document.querySelector(`[name="makeup_date_${idx}"]`);
+        const g = document.querySelector(`[name="makeup_date_g_${idx}"]`);
+        const dEl = document.getElementById(`makeupDrop_${idx}`);
+        if (j && g && dEl){
+          j.addEventListener("click", () => { const vis = dEl.style.display === "block"; dEl.style.display = vis ? "none" : "block"; renderPicker(dEl, j, g); });
+        }
+      });
+      const firstG = document.querySelector('[name="session_date_g_1"]');
+      const firstJ = document.querySelector('[name="session_date_1"]');
+      if (firstG && firstJ && !firstG.value && firstJ.value){
+        const parts = (firstJ.value||"").split("/").map(x=>Number(x));
+        if (parts.length===3 && parts[0] && parts[1] && parts[2]){
+          const conv = j2g(parts[2], parts[1], parts[0]);
+          firstG.value = `${conv[0]}-${pad2(conv[1])}-${pad2(conv[2])}`;
+        }
+      }
+      const first = document.querySelector('[name="session_date_g_1"]');
+      if (first) first.addEventListener('change', propagateSessionDates);
+    }
+
+    function renderPicker(container, jInput, gInput){
+      container.innerHTML = "";
+      const state = { jy: curJ.jy, jm: curJ.jm };
+      const header = document.createElement("div"); header.style.display="flex"; header.style.justifyContent="space-between"; header.style.alignItems="center"; header.style.padding="8px";
+      const prev = document.createElement("button"); prev.className="btn btn-secondary"; prev.textContent="<"; prev.onclick = () => { state.jm--; if (state.jm<1){ state.jm=12; state.jy--; } renderBody(); };
+      const next = document.createElement("button"); next.className="btn btn-secondary"; next.textContent=">"; next.onclick = () => { state.jm++; if (state.jm>12){ state.jm=1; state.jy++; } renderBody(); };
+      const title = document.createElement("div"); const mi = Math.max(1, Math.min(12, Number(state.jm||1))) - 1; title.textContent = `${monthsFa[mi]} ${state.jy}`;
+      header.appendChild(prev); header.appendChild(title); header.appendChild(next);
+      container.appendChild(header);
+      const grid = document.createElement("div"); grid.style.display="grid"; grid.style.gridTemplateColumns="repeat(7, 1fr)"; grid.style.gap="6px"; grid.style.padding="8px";
+      weekDays.forEach(w => { const c=document.createElement("div"); c.textContent=w; c.style.fontWeight="600"; c.style.textAlign="center"; grid.appendChild(c); });
+      container.appendChild(grid);
+      function renderBody(){
+        grid.innerHTML = "";
+        const firstG = j2g(state.jy, state.jm, 1); const firstDay = new Date(firstG[0], firstG[1]-1, firstG[2]).getDay(); const offset = (firstDay + 1) % 7;
+        for(let i=0;i<offset;i++){ const e=document.createElement("div"); grid.appendChild(e); }
+        const ml = jMonthLen(state.jy, state.jm);
+        for(let d=1; d<=ml; d++){
+          const cell = document.createElement("button"); cell.className="btn btn-secondary"; cell.style.padding="6px"; cell.textContent = pad2(d);
+          cell.onclick = () => { jInput.value = `${pad2(d)}/${pad2(state.jm)}/${state.jy}`; const gParts = j2g(state.jy, state.jm, d); gInput.value = `${gParts[0]}-${pad2(gParts[1])}-${pad2(gParts[2])}`; container.style.display="none"; };
+          grid.appendChild(cell);
+        }
+      }
+      renderBody();
+    }
     const clsStudentsPicker = document.getElementById("clsStudentsPicker");
     const clsStudentsDropdown = document.getElementById("clsStudentsDropdown");
     const clsStudentsList = document.getElementById("clsStudentsList");
