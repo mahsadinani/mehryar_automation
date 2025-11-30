@@ -341,15 +341,13 @@
           
           <div class="rf-row"><label>تاریخ پایان دوره</label>
             <div style="display:flex; gap:8px; align-items:center">
-              <input id="clsEndJ" placeholder="روز/ماه/سال شمسی" />
-              <div id="clsEndDrop" class="dropdown"></div>
+              <input id="clsEndJ" placeholder="yyyy/mm/dd" />
               <input name="end_date" id="clsEndG" type="hidden" />
             </div>
           </div>
           <div class="rf-row"><label>تاریخ صدور مدرک</label>
             <div style="display:flex; gap:8px; align-items:center">
-              <input id="clsCertJ" placeholder="روز/ماه/سال شمسی" />
-              <div id="clsCertDrop" class="dropdown"></div>
+              <input id="clsCertJ" placeholder="yyyy/mm/dd" />
               <input name="certificate_issue_date" id="clsCertG" type="hidden" />
             </div>
           </div>
@@ -976,33 +974,24 @@
     function pad2(n){ return String(n).padStart(2, "0"); }
     function attachJalaliPickers(){
       const defs = [
-        { j: document.getElementById("clsEndJ"), d: document.getElementById("clsEndDrop"), g: document.getElementById("clsEndG") },
-        { j: document.getElementById("clsCertJ"), d: document.getElementById("clsCertDrop"), g: document.getElementById("clsCertG") }
+        { j: document.getElementById("clsEndJ"), g: document.getElementById("clsEndG") },
+        { j: document.getElementById("clsCertJ"), g: document.getElementById("clsCertG") }
       ];
+      const parseJ = (val) => {
+        const m = String(val||"").match(/^\s*(\d{4})\/(\d{1,2})\/(\d{1,2})\s*$/);
+        if (!m) return null;
+        const jy = Number(m[1]), jm = Number(m[2]), jd = Number(m[3]);
+        if (!jy || jm<1 || jm>12 || jd<1 || jd>31) return null;
+        return { jy, jm, jd };
+      };
       defs.forEach(def => {
-        if (!def.j || !def.d || !def.g) return;
-        const state = { jy: curJ.jy, jm: curJ.jm };
-        function render(){
-          def.d.innerHTML = "";
-          const header = document.createElement("div"); header.style.display="flex"; header.style.justifyContent="space-between"; header.style.alignItems="center"; header.style.padding="8px";
-          const prev = document.createElement("button"); prev.className="btn btn-secondary"; prev.textContent="<"; prev.onclick = () => { state.jm--; if (state.jm<1){ state.jm=12; state.jy--; } render(); };
-          const next = document.createElement("button"); next.className="btn btn-secondary"; next.textContent=">"; next.onclick = () => { state.jm++; if (state.jm>12){ state.jm=1; state.jy++; } render(); };
-          const title = document.createElement("div"); const mi = Math.max(1, Math.min(12, Number(state.jm||1))) - 1; title.textContent = `${monthsFa[mi]} ${formatFa(state.jy)}`;
-          header.appendChild(prev); header.appendChild(title); header.appendChild(next);
-          def.d.appendChild(header);
-          const grid = document.createElement("div"); grid.style.display="grid"; grid.style.gridTemplateColumns="repeat(7, 1fr)"; grid.style.gap="6px"; grid.style.padding="8px";
-          weekDays.forEach(w => { const c=document.createElement("div"); c.textContent=w; c.style.fontWeight="600"; c.style.textAlign="center"; grid.appendChild(c); });
-          const firstG = j2g(state.jy, state.jm, 1); const firstDay = new Date(firstG[0], firstG[1]-1, firstG[2]).getDay(); const offset = (firstDay + 1) % 7;
-          for(let i=0;i<offset;i++){ const e=document.createElement("div"); grid.appendChild(e); }
-          const ml = jMonthLen(state.jy, state.jm);
-          for(let d=1; d<=ml; d++){
-            const cell = document.createElement("button"); cell.className="btn btn-secondary"; cell.style.padding="6px"; cell.textContent = formatFa(pad2(d));
-            cell.onclick = () => { def.j.value = `${formatFa(pad2(d))}/${formatFa(pad2(state.jm))}/${formatFa(state.jy)}`; const [gy,gm,gd]=j2g(state.jy, state.jm, d); def.g.value = `${gy}-${pad2(gm)}-${pad2(gd)}`; def.d.style.display="none"; };
-            grid.appendChild(cell);
-          }
-          def.d.appendChild(grid);
-        }
-        def.j.addEventListener("click", () => { const vis = def.d.style.display === "block"; def.d.style.display = vis ? "none" : "block"; render(); });
+        if (!def.j || !def.g) return;
+        def.j.addEventListener("input", () => {
+          const p = parseJ(def.j.value);
+          if (!p) { def.g.value = ""; return; }
+          const [gy,gm,gd] = j2g(p.jy, p.jm, p.jd);
+          def.g.value = `${gy}-${pad2(gm)}-${pad2(gd)}`;
+        });
       });
     }
     let makeupList = [];
@@ -1013,15 +1002,13 @@
       for(let i=1;i<=n;i++){
         const box = document.createElement("div");
         box.className = "card";
-        const di = document.createElement("input"); di.type = "text"; di.name = `session_date_${i}`; di.placeholder = "روز/ماه/سال";
+        const di = document.createElement("input"); di.type = "text"; di.name = `session_date_${i}`; di.placeholder = "yyyy/mm/dd";
         const gi = document.createElement("input"); gi.type = "hidden"; gi.name = `session_date_g_${i}`;
-        const drop = document.createElement("div"); drop.id = `sessionDrop_${i}`; drop.style.display = "none";
         const c1 = document.createElement("label");
         const c1i = document.createElement("input"); c1i.type = "checkbox"; c1i.name = `session_cancel_${i}`; c1.appendChild(c1i); c1.appendChild(document.createTextNode(" کنسلی جلسه"));
         box.appendChild(document.createTextNode(`جلسه ${i}`));
         box.appendChild(document.createElement("br"));
         box.appendChild(di);
-        box.appendChild(drop);
         box.appendChild(gi);
         box.appendChild(document.createElement("br"));
         box.appendChild(c1);
@@ -1058,8 +1045,7 @@
       const idx = makeupList.length + 1;
       const box = document.createElement("div"); box.className = "card";
       box.appendChild(document.createTextNode(`جلسه جبرانی ${idx}`)); box.appendChild(document.createElement("br"));
-      const di = document.createElement("input"); di.type = "text"; di.name = `makeup_date_${idx}`; di.placeholder = "روز/ماه/سال"; box.appendChild(di);
-      const drop = document.createElement("div"); drop.id = `makeupDrop_${idx}`; drop.style.display = "none"; box.appendChild(drop);
+      const di = document.createElement("input"); di.type = "text"; di.name = `makeup_date_${idx}`; di.placeholder = "yyyy/mm/dd"; box.appendChild(di);
       const gi = document.createElement("input"); gi.type = "hidden"; gi.name = `makeup_date_g_${idx}`; box.appendChild(gi);
       box.appendChild(document.createElement("br"));
       const c1 = document.createElement("label"); const c1i = document.createElement("input"); c1i.type = "checkbox"; c1i.name = `makeup_cancel_${idx}`; c1.appendChild(c1i); c1.appendChild(document.createTextNode(" کنسلی جلسه")); box.appendChild(c1);
@@ -1070,28 +1056,44 @@
 
     function attachSessionJalaliPickers(){
       const n = Math.max(1, Number(clsSessionsCount.value || 1));
+      const parseJ = (val) => {
+        const m = String(val||"").match(/^\s*(\d{4})\/(\d{1,2})\/(\d{1,2})\s*$/);
+        if (!m) return null;
+        const jy = Number(m[1]), jm = Number(m[2]), jd = Number(m[3]);
+        if (!jy || jm<1 || jm>12 || jd<1 || jd>31) return null;
+        return { jy, jm, jd };
+      };
       for(let i=1;i<=n;i++){
         const j = document.querySelector(`[name="session_date_${i}"]`);
         const g = document.querySelector(`[name="session_date_g_${i}"]`);
-        const dEl = document.getElementById(`sessionDrop_${i}`);
-        if (j && g && dEl){
-          j.addEventListener("click", () => { const vis = dEl.style.display === "block"; dEl.style.display = vis ? "none" : "block"; renderPicker(dEl, j, g); });
+        if (j && g){
+          j.addEventListener("input", () => {
+            const p = parseJ(j.value);
+            if (!p) { g.value = ""; return; }
+            const conv = j2g(p.jy, p.jm, p.jd);
+            g.value = `${conv[0]}-${pad2(conv[1])}-${pad2(conv[2])}`;
+            if (i === 1) g.dispatchEvent(new Event("change"));
+          });
         }
       }
       makeupList.forEach(idx => {
         const j = document.querySelector(`[name="makeup_date_${idx}"]`);
         const g = document.querySelector(`[name="makeup_date_g_${idx}"]`);
-        const dEl = document.getElementById(`makeupDrop_${idx}`);
-        if (j && g && dEl){
-          j.addEventListener("click", () => { const vis = dEl.style.display === "block"; dEl.style.display = vis ? "none" : "block"; renderPicker(dEl, j, g); });
+        if (j && g){
+          j.addEventListener("input", () => {
+            const p = parseJ(j.value);
+            if (!p) { g.value = ""; return; }
+            const conv = j2g(p.jy, p.jm, p.jd);
+            g.value = `${conv[0]}-${pad2(conv[1])}-${pad2(conv[2])}`;
+          });
         }
       });
       const firstG = document.querySelector('[name="session_date_g_1"]');
       const firstJ = document.querySelector('[name="session_date_1"]');
       if (firstG && firstJ && !firstG.value && firstJ.value){
-        const parts = (firstJ.value||"").split("/").map(x=>Number(x));
-        if (parts.length===3 && parts[0] && parts[1] && parts[2]){
-          const conv = j2g(parts[2], parts[1], parts[0]);
+        const p = parseJ(firstJ.value);
+        if (p){
+          const conv = j2g(p.jy, p.jm, p.jd);
           firstG.value = `${conv[0]}-${pad2(conv[1])}-${pad2(conv[2])}`;
           firstG.dispatchEvent(new Event("change"));
         }
