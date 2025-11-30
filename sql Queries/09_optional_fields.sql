@@ -5,3 +5,4 @@ alter table courses alter column name set not null;
 alter table students alter column name drop not null;
 alter table applicants alter column name drop not null;
 alter table tech_courses alter column name_fa drop not null;
+alter table if exists classes add column if not exists students jsonb default '[]';

@@ -500,6 +500,19 @@ app.put("/api/finance/student-profiles/:id", async (req, res) => {
   res.status(404).json({ ok: false });
 });
 
+app.delete("/api/finance/student-profiles/:id", async (req, res) => {
+  const id = req.params.id;
+  if (supabase) {
+    const { error } = await supabase.from("student_finance_profiles").delete().eq("id", id);
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("finance.profile.delete", { id }).catch(()=>{});
+    return res.json({ ok: true });
+  }
+  const idx = state.studentFinanceProfiles.findIndex(p => p.id === id);
+  if (idx >= 0) { state.studentFinanceProfiles.splice(idx, 1); sendWebhooks("finance.profile.delete", { id }).catch(()=>{}); return res.json({ ok: true }); }
+  res.status(404).json({ ok: false });
+});
+
 app.get("/api/webhooks", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("data_links").select("key,url").like("key", "webhook:%");

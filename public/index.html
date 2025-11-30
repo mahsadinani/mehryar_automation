@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>مهر یار - دستیار هوشمند آموزشگاه مهرابتکار</title>
-  <link rel="icon" type="image/png" href="/mehrab-logo.png" sizes="96x96" />
+  <link rel="icon" type="image/png" href="/mehrebtekar-logo.png" sizes="96x96" />
   <link rel="icon" type="image/svg+xml" href="/mehryar-logo.svg" />
   <style>
     body { font-family: Vazirmatn, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b4f84; color: #222; direction: rtl }
@@ -436,23 +436,24 @@
             <div id="sfInstallments" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px"></div>
             <div class="actions"><button type="button" id="addInstallmentBtn" class="btn btn-secondary">افزودن قسط</button></div>
           </div>
-          <div class="rf-row"><label>وضعیت تسویه</label>
-            <select name="status" id="sfStatus">
-              <option value="تسویه شده">تسویه شده</option>
-              <option value="کنسل شده">کنسل شده</option>
-              <option value="در انتظار تسویه" selected>در انتظار تسویه</option>
-            </select>
-          </div>
-          <div class="actions">
-            <button type="submit" class="btn">ثبت پروفایل مالی</button>
-            <button type="button" id="cancelStudentFinanceForm" class="btn btn-secondary">انصراف</button>
-          </div>
-        </form>
+        <div class="rf-row"><label>وضعیت تسویه</label>
+          <select name="status" id="sfStatus">
+            <option value="تسویه شده">تسویه شده</option>
+            <option value="کنسل شده">کنسل شده</option>
+            <option value="در انتظار تسویه" selected>در انتظار تسویه</option>
+          </select>
+        </div>
+        <input type="hidden" name="id" id="sfId" />
+        <div class="actions">
+          <button type="submit" class="btn">ثبت پروفایل مالی</button>
+          <button type="button" id="cancelStudentFinanceForm" class="btn btn-secondary">انصراف</button>
+        </div>
+      </form>
       </div>
       <div class="list">
         <h3>پروفایل‌های مالی شاگردان</h3>
         <div style="margin-bottom:8px"><input id="studentFinanceSearch" placeholder="جستجو پروفایل..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
-        <div id="studentFinanceList" class="grid"></div>
+        <div id="studentFinanceList" class="rf-plain-list"></div>
       </div>
     </section>
 
@@ -1368,16 +1369,32 @@
     const sfClass = document.getElementById("sfClass");
     const sfInstallments = document.getElementById("sfInstallments");
     const addInstallmentBtn = document.getElementById("addInstallmentBtn");
-    function openStudentFinanceForm(){
+    function openStudentFinanceForm(data=null){
       studentFinanceForm.reset();
       studentFinanceFormPanel.style.display = "block";
       sfInstallments.innerHTML = "";
       const uj = document.getElementById("sfUpfrontDateJ");
       const ug = document.getElementById("sfUpfrontDateG");
-      if (uj && ug) {
-        const now = new Date(); const [jy,jm,jd] = g2j(now.getFullYear(), now.getMonth()+1, now.getDate());
-        uj.value = `${toFaDigits(String(jd).padStart(2,"0"))}/${toFaDigits(String(jm).padStart(2,"0"))}/${toFaDigits(jy)}`;
-        ug.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+      if (data) {
+        const idEl = document.getElementById("sfId"); if (idEl) idEl.value = data.id || "";
+        const sSel = document.getElementById("sfStudent");
+        const cSel = document.getElementById("sfClass");
+        if (sSel) sSel.value = data.student_id || "";
+        if (cSel) cSel.value = data.class_code || "";
+        const ua = document.getElementById("sfUpfrontAmount"); if (ua) ua.value = String(data.upfront_amount||"");
+        const st = document.getElementById("sfStatus"); if (st) st.value = data.status || "";
+        if (data.upfront_date && uj && ug) {
+          const m = String(data.upfront_date).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          if (m) { const parts = g2j(Number(m[1]), Number(m[2]), Number(m[3])); uj.value = `${toFaDigits(String(parts[2]).padStart(2,"0"))}/${toFaDigits(String(parts[1]).padStart(2,"0"))}/${toFaDigits(parts[0])}`; ug.value = data.upfront_date; }
+        }
+        const inst = Array.isArray(data.installments) ? data.installments : [];
+        inst.forEach(it => addInstallmentRow(it));
+      } else {
+        if (uj && ug) {
+          const now = new Date(); const [jy,jm,jd] = g2j(now.getFullYear(), now.getMonth()+1, now.getDate());
+          uj.value = `${toFaDigits(String(jd).padStart(2,"0"))}/${toFaDigits(String(jm).padStart(2,"0"))}/${toFaDigits(jy)}`;
+          ug.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+        }
       }
       attachFinanceJalaliPickers();
     }
@@ -1394,13 +1411,15 @@
       classes.forEach(c => { const opt = document.createElement("option"); opt.value = c.code || c.id || ""; opt.textContent = `${c.code||""} - ${c.title||c.name||""}`; sfClass.appendChild(opt); });
     }
     loadSfOptions();
-    function addInstallmentRow(){
+    function addInstallmentRow(pref){
       const wrap = document.createElement("div"); wrap.className = "card";
-      const rid = Date.now();
+      const rid = Date.now().toString() + Math.random().toString().slice(2,6);
       const amt = document.createElement("input"); amt.placeholder = "مبلغ قسط"; amt.name = `installment_amount_${rid}`;
       const dtJ = document.createElement("input"); dtJ.type = "text"; dtJ.placeholder = "yyyy/mm/dd"; dtJ.name = `installment_date_j_${rid}`;
       const dtG = document.createElement("input"); dtG.type = "hidden"; dtG.name = `installment_date_g_${rid}`;
       const dDrop = document.createElement("div"); dDrop.id = `instDrop_${rid}`; dDrop.className = "rf-dropdown";
+      if (pref?.amount !== undefined) amt.value = String(pref.amount);
+      if (pref?.date) { const m = String(pref.date).match(/^(\d{4})-(\d{2})-(\d{2})$/); if (m) { const parts = g2j(Number(m[1]), Number(m[2]), Number(m[3])); dtJ.value = `${toFaDigits(String(parts[2]).padStart(2,"0"))}/${toFaDigits(String(parts[1]).padStart(2,"0"))}/${toFaDigits(parts[0])}`; dtG.value = pref.date; } }
       wrap.appendChild(amt); wrap.appendChild(dtJ); wrap.appendChild(dtG); wrap.appendChild(dDrop);
       sfInstallments.appendChild(wrap);
       attachFinanceJalaliPickers();
@@ -1457,7 +1476,15 @@
       const q = (studentFinanceSearch?.value||"").trim();
       const filtered = q ? items.filter(x => `${x.class_code||""} ${x.status||""} ${x.student_id||""}`.includes(q)) : items;
       studentFinanceList.innerHTML = "";
-      filtered.forEach(x => { const c = document.createElement("div"); c.className = "card"; c.textContent = `${x.student_id} | ${x.class_code} | ${x.status}`; studentFinanceList.appendChild(c); });
+      filtered.forEach(x => {
+        const c = document.createElement("div"); c.className = "rf-plain-item";
+        const info = document.createElement("div"); const money = formatFaNumber(x.upfront_amount||0); info.textContent = `${x.student_id||""} | ${x.class_code||""} | ${x.status||""} | پیش‌پرداخت: ${money}`;
+        const actions = document.createElement("div"); actions.className = "actions"; actions.style.marginTop = "0";
+        const editBtn = document.createElement("button"); editBtn.className = "btn"; editBtn.textContent = "ویرایش"; editBtn.onclick = () => openStudentFinanceForm(x);
+        const delBtn = document.createElement("button"); delBtn.className = "btn btn-secondary"; delBtn.textContent = "حذف"; delBtn.onclick = async () => { if (!x.id) { showToast("شناسه نامعتبر", "error"); return; } const res = await fetch(`/api/finance/student-profiles/${x.id}`, { method: "DELETE" }); const json = await res.json().catch(()=>({ ok:false })); showToast(json.ok?"پروفایل مالی حذف شد":"خطا در حذف", json.ok?"success":"error"); loadStudentFinance(); };
+        c.appendChild(info); actions.appendChild(editBtn); actions.appendChild(delBtn); c.appendChild(actions);
+        studentFinanceList.appendChild(c);
+      });
     }
     studentFinanceSearch?.addEventListener("input", () => renderStudentFinance(window.studentFinanceData||[]));
     async function loadStudentFinance(){
@@ -1485,9 +1512,12 @@
         installments,
         status: obj.status
       };
-      const res = await fetch("/api/finance/student-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const id = obj.id;
+      const res = id
+        ? await fetch(`/api/finance/student-profiles/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+        : await fetch("/api/finance/student-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
-      if (json?.ok) { await postWebhook("student_finance_submit", json.profile || payload); }
+      if (json?.ok) { await postWebhook(id?"student_finance_update":"student_finance_submit", json.profile || payload); }
       const warnText = (() => {
         const cols = json?.warnings?.removed_columns;
         return (Array.isArray(cols) && cols.length) ? ` هشدار: فیلدهای ناموجود حذف شدند: ${cols.join(", ")}` : "";
@@ -1499,7 +1529,7 @@
         }
         return json?.message || "";
       })();
-      showToast(json.ok ? (`پروفایل مالی ثبت شد${warnText}`) : (`خطا در ثبت پروفایل${errText?`: ${errText}`:""}`), json.ok ? "success" : "error");
+      showToast(json.ok ? (id?`پروفایل مالی به‌روزرسانی شد${warnText}`:`پروفایل مالی ثبت شد${warnText}`) : (`خطا در ثبت پروفایل${errText?`: ${errText}`:""}`), json.ok ? "success" : "error");
       closeStudentFinanceForm();
       loadStudentFinance();
     });
