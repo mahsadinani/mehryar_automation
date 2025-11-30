@@ -44,6 +44,7 @@
     .card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; background: #fafafa }
     .card .course-banner { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; display:block }
     .course-thumb { width: 60px; max-height: 40px; object-fit: cover; border-radius: 6px; margin-left: 8px }
+    .thumb-box { width: 72px; height: 48px; border:1px solid #e5e7eb; border-radius:8px; display:flex; align-items:center; justify-content:center; background:#fff; margin-left:8px }
     .actions { display: flex; gap: 8px; margin-top: 8px }
     .rf-container { background:#fff; border:1px solid #e5e7eb; border-radius:18px; overflow:hidden; box-shadow: 0 10px 24px rgba(0,0,0,.08) }
     .rf-header { background:#0c5a98; color:#fff; padding:20px; display:flex; gap:12px; align-items:center }
@@ -781,14 +782,29 @@
         const full = (x.full_name && String(x.full_name).trim()) || [x.name, x.last_name].filter(Boolean).join(" ") || (x.english_name||"");
         const title = full || "بدون نام";
         const c = document.createElement("div");
-        c.className = "card";
-        c.innerHTML = `${title} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
+        c.className = "rf-plain-item";
+        const info = document.createElement("div");
+        info.textContent = `${title} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
+        const actions = document.createElement("div");
+        actions.className = "actions";
         const edit = document.createElement("button");
         edit.className = "btn btn-secondary";
         edit.textContent = "ویرایش";
-        edit.style.marginTop = "8px";
         edit.onclick = () => openStudentForm(x);
-        c.appendChild(edit);
+        const del = document.createElement("button");
+        del.className = "btn btn-secondary";
+        del.textContent = "حذف";
+        del.onclick = async () => {
+          if (!x.id) { showToast("شناسه نامعتبر", "error"); return; }
+          const res = await fetch(`/api/students/${x.id}`, { method: "DELETE" });
+          const json = await res.json().catch(()=>({ ok:false }));
+          showToast(json.ok?"شاگرد حذف شد":"خطا در حذف", json.ok?"success":"error");
+          loadStudents();
+        };
+        actions.appendChild(edit);
+        actions.appendChild(del);
+        c.appendChild(info);
+        c.appendChild(actions);
         studentsList.appendChild(c);
       });
     }
@@ -1170,7 +1186,7 @@
         const sessionsText = (typeof x.sessions_count !== 'undefined') ? ` | جلسات: ${formatFaNumber(x.sessions_count)}` : "";
         const tuitionText = (typeof x.tuition !== 'undefined') ? ` | شهریه: ${formatFaNumber(x.tuition)}` : "";
         const title = document.createElement("div");
-        if (x.banner) { const img = document.createElement("img"); img.src = x.banner; img.alt = x.name||""; img.className = "course-thumb"; title.appendChild(img); }
+        if (x.banner) { const box = document.createElement("div"); box.className = "thumb-box"; const img = document.createElement("img"); img.src = x.banner; img.alt = x.name||""; img.className = "course-thumb"; box.appendChild(img); title.appendChild(box); }
         const text = document.createElement("span");
         text.textContent = `${x.name||""} | ${x.teacher||""}${hourText}${sessionsText}${tuitionText}`;
         title.appendChild(text);
@@ -1220,7 +1236,7 @@
       if(id){
         if(bannerFile){
           const url = await uploadBannerFile(bannerFile, id, payload.name);
-          if(url) payload.banner = url;
+          if(url) payload.banner = url; else showToast("خطا در آپلود بنر", "error");
         }
         const res = await fetch(`/api/courses/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
         const json = await res.json();
@@ -1236,7 +1252,10 @@
             if(url){
               const res2 = await fetch(`/api/courses/${courseId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ banner: url })});
               const json2 = await res2.json();
+              if (!json2.ok) showToast(`خطا در ذخیره بنر: ${json2.error||""}`, "error");
               saved = json2?.ok ? json2 : saved;
+            } else {
+              showToast("خطا در آپلود بنر", "error");
             }
           }
         }

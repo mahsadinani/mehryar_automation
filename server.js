@@ -476,6 +476,17 @@ app.delete("/api/courses/:id", async (req, res) => {
   if (idx >= 0) { state.courses.splice(idx, 1); return res.json({ ok: true }); }
   res.status(404).json({ ok: false });
 });
+app.delete("/api/students/:id", async (req, res) => {
+  const id = req.params.id;
+  if (supabase) {
+    const { error } = await supabase.from("students").delete().eq("id", id);
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    return res.json({ ok: true });
+  }
+  const idx = state.students?.findIndex?.(s => s.id === id) ?? -1;
+  if (idx >= 0) { state.students.splice(idx, 1); return res.json({ ok: true }); }
+  res.status(404).json({ ok: false });
+});
 app.delete("/api/tech-courses/:id", async (req, res) => {
   const id = req.params.id;
   if (supabase) {
