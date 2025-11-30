@@ -1333,18 +1333,28 @@
       const sessions = JSON.parse(sel.dataset.sessions||"[]");
       const studentsIdsRaw = sel.dataset.students||"[]";
       const studentsIds = (() => { try { const parsed = JSON.parse(studentsIdsRaw); return Array.isArray(parsed) ? parsed : []; } catch { return []; } })();
-      const header = document.createElement("div"); header.className = "rf-row"; header.textContent = `جلسات: ${sessions.map(s=>s.index).join(", ")}`; attGrid.appendChild(header);
+      const table = document.createElement("table");
+      table.style.width = "100%"; table.style.borderCollapse = "collapse"; table.style.background = "#fff"; table.style.border = "1px solid #dbe0e6"; table.style.borderRadius = "8px";
+      const thead = document.createElement("thead"); const htr = document.createElement("tr");
+      const hstu = document.createElement("th"); hstu.textContent = "شاگرد"; hstu.style.padding = "8px"; hstu.style.border = "1px solid #e6eaf0"; hstu.style.background = "#f5f7fa"; htr.appendChild(hstu);
+      sessions.forEach(s => { const th = document.createElement("th"); th.textContent = String(s.index); th.style.padding = "8px"; th.style.border = "1px solid #e6eaf0"; th.style.background = "#f5f7fa"; htr.appendChild(th); });
+      thead.appendChild(htr);
+      const tbody = document.createElement("tbody");
       Promise.resolve(fetch("/api/students").then(r=>r.json())).then(students => {
         const map = new Map(students.map(s => [s.id, s]));
         studentsIds.forEach(sid => {
           const st = map.get(sid) || { id: sid, name: sid };
-          const row = document.createElement("div"); row.className = "rf-row";
-          const label = document.createElement("div"); const full = (st.full_name && String(st.full_name).trim()) || [st.name, st.last_name].filter(Boolean).join(" ") || (st.english_name||"بدون نام"); label.textContent = full; row.appendChild(label);
-          const boxes = document.createElement("div"); boxes.style.display = "flex"; boxes.style.gap = "8px";
-          sessions.forEach(s => { const cb = document.createElement("input"); cb.type="checkbox"; cb.name = `att_${st.id}_${s.index}`; boxes.appendChild(cb); });
-          row.appendChild(boxes);
-          attGrid.appendChild(row);
+          const tr = document.createElement("tr");
+          const full = (st.full_name && String(st.full_name).trim()) || [st.name, st.last_name].filter(Boolean).join(" ") || (st.english_name||"بدون نام");
+          const tdName = document.createElement("td"); tdName.textContent = full; tdName.style.padding = "8px"; tdName.style.border = "1px solid #e6eaf0"; tr.appendChild(tdName);
+          sessions.forEach(s => {
+            const td = document.createElement("td"); td.style.textAlign = "center"; td.style.padding = "8px"; td.style.border = "1px solid #e6eaf0";
+            const cb = document.createElement("input"); cb.type="checkbox"; cb.name = `att_${st.id}_${s.index}`; td.appendChild(cb);
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
         });
+        table.appendChild(thead); table.appendChild(tbody); attGrid.appendChild(table);
       });
     }
     attClass?.addEventListener("change", renderAttendanceGrid);
