@@ -39,6 +39,9 @@
     .rf-row { display:grid; grid-template-columns: 160px 1fr; gap:10px; align-items:center; margin-bottom:8px }
     .rf-plain-list { display:block }
     .rf-plain-item { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid #e5e7eb }
+    .rf-plain-item.rf-finance-pending { background:#fff }
+    .rf-plain-item.rf-finance-settled { background:#eafbe6; border-bottom-color:#a7e3a0 }
+    .rf-plain-item.rf-finance-cancelled { background:#fde8e8; border-bottom-color:#f5b5b5 }
     .rf-row label { color:#0c5a98; font-weight:600; text-align:right; line-height:1.3; margin:0 }
     .rf-row input { background:#f5f7fa; border:1px solid #dbe0e6; border-radius:10px; padding:8px 10px; height:40px }
     .rf-row textarea { background:#f5f7fa; border:1px solid #dbe0e6; border-radius:10px; padding:10px; min-height:96px; line-height:1.5 }
@@ -1372,6 +1375,7 @@
     function openStudentFinanceForm(data=null){
       studentFinanceForm.reset();
       studentFinanceFormPanel.style.display = "block";
+      Array.from(document.querySelectorAll('#studentFinanceFormPanel .rf-dropdown')).forEach(el=>{ el.style.display = 'none'; });
       sfInstallments.innerHTML = "";
       const uj = document.getElementById("sfUpfrontDateJ");
       const ug = document.getElementById("sfUpfrontDateG");
@@ -1418,6 +1422,7 @@
       const dtJ = document.createElement("input"); dtJ.type = "text"; dtJ.placeholder = "yyyy/mm/dd"; dtJ.name = `installment_date_j_${rid}`;
       const dtG = document.createElement("input"); dtG.type = "hidden"; dtG.name = `installment_date_g_${rid}`;
       const dDrop = document.createElement("div"); dDrop.id = `instDrop_${rid}`; dDrop.className = "rf-dropdown";
+      dDrop.style.display = "none";
       if (pref?.amount !== undefined) amt.value = String(pref.amount);
       if (pref?.date) { const m = String(pref.date).match(/^(\d{4})-(\d{2})-(\d{2})$/); if (m) { const parts = g2j(Number(m[1]), Number(m[2]), Number(m[3])); dtJ.value = `${toFaDigits(String(parts[2]).padStart(2,"0"))}/${toFaDigits(String(parts[1]).padStart(2,"0"))}/${toFaDigits(parts[0])}`; dtG.value = pref.date; } }
       wrap.appendChild(amt); wrap.appendChild(dtJ); wrap.appendChild(dtG); wrap.appendChild(dDrop);
@@ -1475,10 +1480,21 @@
     function renderStudentFinance(items){
       const q = (studentFinanceSearch?.value||"").trim();
       const filtered = q ? items.filter(x => `${x.class_code||""} ${x.status||""} ${x.student_id||""}`.includes(q)) : items;
+      const stMap = new Map((window.studentsData||[]).map(s => {
+        const full = (s.full_name && String(s.full_name).trim()) || [s.name, s.last_name].filter(Boolean).join(" ") || (s.english_name||"بدون نام");
+        return [s.id, full];
+      }));
+      const clsMap = new Map((window.classesData||[]).map(c => [c.code || c.id, c.title || c.name || ""]));
       studentFinanceList.innerHTML = "";
       filtered.forEach(x => {
-        const c = document.createElement("div"); c.className = "rf-plain-item";
-        const info = document.createElement("div"); const money = formatFaNumber(x.upfront_amount||0); info.textContent = `${x.student_id||""} | ${x.class_code||""} | ${x.status||""} | پیش‌پرداخت: ${money}`;
+        const c = document.createElement("div");
+        const status = String(x.status||"");
+        const statusClass = status === "تسویه شده" ? "rf-finance-settled" : (status === "کنسل شده" ? "rf-finance-cancelled" : "rf-finance-pending");
+        c.className = `rf-plain-item ${statusClass}`;
+        const sName = stMap.get(x.student_id) || x.student_id || "";
+        const clsName = clsMap.get(x.class_code) || x.class_code || "";
+        const info = document.createElement("div"); const money = formatFaNumber(x.upfront_amount||0);
+        info.textContent = `${sName} | ${clsName} | ${status} ${x.upfront_amount!==undefined?`| پیش‌پرداخت: ${money}`:""}`;
         const actions = document.createElement("div"); actions.className = "actions"; actions.style.marginTop = "0";
         const editBtn = document.createElement("button"); editBtn.className = "btn"; editBtn.textContent = "ویرایش"; editBtn.onclick = () => openStudentFinanceForm(x);
         const delBtn = document.createElement("button"); delBtn.className = "btn btn-secondary"; delBtn.textContent = "حذف"; delBtn.onclick = async () => { if (!x.id) { showToast("شناسه نامعتبر", "error"); return; } const res = await fetch(`/api/finance/student-profiles/${x.id}`, { method: "DELETE" }); const json = await res.json().catch(()=>({ ok:false })); showToast(json.ok?"پروفایل مالی حذف شد":"خطا در حذف", json.ok?"success":"error"); loadStudentFinance(); };
@@ -1518,10 +1534,7 @@
         : await fetch("/api/finance/student-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (json?.ok) { await postWebhook(id?"student_finance_update":"student_finance_submit", json.profile || payload); }
-      const warnText = (() => {
-        const cols = json?.warnings?.removed_columns;
-        return (Array.isArray(cols) && cols.length) ? ` هشدار: فیلدهای ناموجود حذف شدند: ${cols.join(", ")}` : "";
-      })();
+      const warnText = "";
       const errText = (() => {
         if (json?.errors) {
           const entries = Object.entries(json.errors);
