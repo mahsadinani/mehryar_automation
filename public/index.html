@@ -290,12 +290,7 @@
             <button id="addStudentBtn" class="btn">افزودن شاگرد جدید</button>
           </div>
           <div class="rf-fields">
-            <div class="list">
-              <h3>شاگردان</h3>
-              <div style="margin-bottom:8px"><input id="studentsSearch" placeholder="جستجو..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
-              <div id="studentsList" class="rf-plain-list"></div>
-            </div>
-            <div class="st-form" id="studentFormPanel" style="margin-top:12px">
+            <div class="st-form" id="studentFormPanel" style="margin-bottom:12px">
               <form id="studentForm">
                 <div class="rf-row"><label>نام کامل</label><input name="full_name" placeholder="مثال: علی رضائی" required /></div>
                 <div class="rf-row"><label>نام و نام خانوادگی (انگلیسی)</label><input name="english_name" /></div>
@@ -319,6 +314,11 @@
                   <button type="button" id="cancelStudentForm" class="btn btn-secondary">انصراف</button>
                 </div>
               </form>
+            </div>
+            <div class="list">
+              <h3>شاگردان</h3>
+              <div style="margin-bottom:8px"><input id="studentsSearch" placeholder="جستجو..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
+              <div id="studentsList" class="rf-plain-list"></div>
             </div>
           </div>
         </div>
@@ -854,6 +854,7 @@
         }
       }
       studentFormPanel.style.display = "block";
+      document.getElementById("PreRegistrationForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     function closeStudentForm() { studentFormPanel.style.display = "none"; }
     addStudentBtn.addEventListener("click", () => openStudentForm());
