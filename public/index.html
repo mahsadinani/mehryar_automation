@@ -7,23 +7,7 @@
   <link rel="icon" type="image/png" href="/mehrab-logo.png" sizes="96x96" />
   <link rel="icon" type="image/svg+xml" href="/mehryar-logo.svg" />
   <style>
-    @font-face {
-      font-family: 'Yekan';
-      font-style: normal;
-      font-weight: 400;
-      src: url('/fonts/yekan.woff2') format('woff2'),
-           url('/fonts/yekan.woff') format('woff');
-      font-display: swap;
-    }
-    @font-face {
-      font-family: 'Yekan';
-      font-style: normal;
-      font-weight: 700;
-      src: url('/fonts/yekan-bold.woff2') format('woff2'),
-           url('/fonts/yekan-bold.woff') format('woff');
-      font-display: swap;
-    }
-    body { font-family: 'Yekan', Vazirmatn, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b4f84; color: #222; direction: rtl }
+    body { font-family: Vazirmatn, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b4f84; color: #222; direction: rtl }
     button, input, select, textarea { font-family: inherit }
     header { background: transparent; color: #fff; padding: 20px 0 }
     .brand { display:flex; align-items:center; gap:12px }
@@ -445,7 +429,9 @@
             <select name="class_code" id="sfClass" required></select>
           </div>
           <div class="rf-row"><label>مبلغ پیش‌پرداخت</label><input name="upfront_amount" id="sfUpfrontAmount" /></div>
-          <div class="rf-row"><label>تاریخ پیش‌پرداخت</label><input name="upfront_date" id="sfUpfrontDate" type="date" /></div>
+          <div class="rf-row"><label>تاریخ پیش‌پرداخت</label>
+            <div class="rf-multi"><input id="sfUpfrontDateJ" placeholder="yyyy/mm/dd" /><input name="upfront_date" id="sfUpfrontDateG" type="hidden" /><div id="sfUpfrontDrop" class="rf-dropdown"></div></div>
+          </div>
           <div class="rf-row"><label>اقساط</label>
             <div id="sfInstallments" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px"></div>
             <div class="actions"><button type="button" id="addInstallmentBtn" class="btn btn-secondary">افزودن قسط</button></div>
@@ -1382,7 +1368,19 @@
     const sfClass = document.getElementById("sfClass");
     const sfInstallments = document.getElementById("sfInstallments");
     const addInstallmentBtn = document.getElementById("addInstallmentBtn");
-    function openStudentFinanceForm(){ studentFinanceForm.reset(); studentFinanceFormPanel.style.display = "block"; sfInstallments.innerHTML = ""; }
+    function openStudentFinanceForm(){
+      studentFinanceForm.reset();
+      studentFinanceFormPanel.style.display = "block";
+      sfInstallments.innerHTML = "";
+      const uj = document.getElementById("sfUpfrontDateJ");
+      const ug = document.getElementById("sfUpfrontDateG");
+      if (uj && ug) {
+        const now = new Date(); const [jy,jm,jd] = g2j(now.getFullYear(), now.getMonth()+1, now.getDate());
+        uj.value = `${toFaDigits(String(jd).padStart(2,"0"))}/${toFaDigits(String(jm).padStart(2,"0"))}/${toFaDigits(jy)}`;
+        ug.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+      }
+      attachFinanceJalaliPickers();
+    }
     function closeStudentFinanceForm(){ studentFinanceFormPanel.style.display = "none"; }
     addStudentFinanceBtn.addEventListener("click", openStudentFinanceForm);
     cancelStudentFinanceForm.addEventListener("click", closeStudentFinanceForm);
@@ -1398,15 +1396,51 @@
     loadSfOptions();
     function addInstallmentRow(){
       const wrap = document.createElement("div"); wrap.className = "card";
-      const amt = document.createElement("input"); amt.placeholder = "مبلغ قسط"; amt.name = `installment_amount_${Date.now()}`;
-      const dt = document.createElement("input"); dt.type = "date"; dt.name = `installment_date_${Date.now()}`;
-      wrap.appendChild(amt); wrap.appendChild(dt);
+      const rid = Date.now();
+      const amt = document.createElement("input"); amt.placeholder = "مبلغ قسط"; amt.name = `installment_amount_${rid}`;
+      const dtJ = document.createElement("input"); dtJ.type = "text"; dtJ.placeholder = "yyyy/mm/dd"; dtJ.name = `installment_date_j_${rid}`;
+      const dtG = document.createElement("input"); dtG.type = "hidden"; dtG.name = `installment_date_g_${rid}`;
+      const dDrop = document.createElement("div"); dDrop.id = `instDrop_${rid}`; dDrop.className = "rf-dropdown";
+      wrap.appendChild(amt); wrap.appendChild(dtJ); wrap.appendChild(dtG); wrap.appendChild(dDrop);
       sfInstallments.appendChild(wrap);
+      attachFinanceJalaliPickers();
     }
     addInstallmentBtn.addEventListener("click", addInstallmentRow);
+    function renderPicker(container, inputJ, inputG){
+      container.innerHTML = "";
+      const now = new Date(); const [jy0,jm0,jd0] = g2j(now.getFullYear(), now.getMonth()+1, now.getDate());
+      let cur = { jy: jy0, jm: jm0 };
+      const header = document.createElement("div"); header.style.display="flex"; header.style.justifyContent="space-between"; header.style.alignItems="center"; header.style.padding="8px";
+      const prev = document.createElement("button"); prev.className="btn btn-secondary"; prev.textContent="<"; prev.onclick = () => { cur.jm--; if (cur.jm<1){ cur.jm=12; cur.jy--; } draw(); };
+      const next = document.createElement("button"); next.className="btn btn-secondary"; next.textContent=">"; next.onclick = () => { cur.jm++; if (cur.jm>12){ cur.jm=1; cur.jy++; } draw(); };
+      const title = document.createElement("div");
+      header.appendChild(prev); header.appendChild(title); header.appendChild(next);
+      container.appendChild(header);
+      const grid = document.createElement("div"); grid.style.display="grid"; grid.style.gridTemplateColumns="repeat(7, 1fr)"; grid.style.gap="6px"; grid.style.padding="8px";
+      weekDays.forEach(w => { const c=document.createElement("div"); c.textContent=w; c.style.fontWeight="600"; c.style.textAlign="center"; grid.appendChild(c); });
+      function draw(){
+        title.textContent = `${monthsFa[Math.max(1,Math.min(12,cur.jm))-1]} ${toFaDigits(cur.jy)}`;
+        while(grid.children.length>7) grid.removeChild(grid.lastChild);
+        const firstG = j2g(cur.jy, cur.jm, 1); const firstDay = new Date(firstG[0], firstG[1]-1, firstG[2]).getDay(); const offset = (firstDay+1)%7;
+        for(let i=0;i<offset;i++){ const e=document.createElement("div"); grid.appendChild(e); }
+        const ml = jMonthLen(cur.jy, cur.jm);
+        for(let d=1; d<=ml; d++){
+          const cell = document.createElement("button"); cell.className="btn btn-secondary"; cell.style.padding="6px"; cell.textContent = toFaDigits(String(d).padStart(2,"0"));
+          cell.onclick = () => {
+            inputJ.value = `${toFaDigits(String(d).padStart(2,"0"))}/${toFaDigits(String(cur.jm).padStart(2,"0"))}/${toFaDigits(cur.jy)}`;
+            const [gy,gm,gd] = j2g(cur.jy, cur.jm, d);
+            inputG.value = `${gy}-${String(gm).padStart(2,"0")}-${String(gd).padStart(2,"0")}`;
+            container.style.display = "none";
+          };
+          grid.appendChild(cell);
+        }
+      }
+      container.appendChild(grid);
+      draw();
+    }
     function attachFinanceJalaliPickers(){
       const uj = document.getElementById("sfUpfrontDateJ");
-      const ug = document.getElementById("sfUpfrontDate");
+      const ug = document.getElementById("sfUpfrontDateG");
       const ud = document.getElementById("sfUpfrontDrop");
       if (uj && ug && ud){ uj.addEventListener("click", () => { const vis = ud.style.display === "block"; ud.style.display = vis ? "none" : "block"; renderPicker(ud, uj, ug); }); }
       Array.from(sfInstallments.querySelectorAll(".card")).forEach(card => {
@@ -1440,21 +1474,28 @@
       const installments = [];
       Array.from(sfInstallments.querySelectorAll(".card")).forEach(card => {
         const ia = card.querySelector('[name^="installment_amount_"]');
-        const idt = card.querySelector('[name^="installment_date_"]');
-        if (ia && idt && idt.value) installments.push({ amount: Number(String(ia.value||"").replace(/[^0-9]/g, "")) || 0, date: idt.value });
+        const idtG = card.querySelector('[name^="installment_date_g_"]');
+        if (ia && idtG && idtG.value) installments.push({ amount: Number(String(ia.value||"").replace(/[^0-9]/g, "")) || 0, date: idtG.value });
       });
       const payload = {
         student_id: obj.student_id,
         class_code: obj.class_code,
         upfront_amount: Number(String(obj.upfront_amount||"").replace(/[^0-9]/g, "")) || 0,
-        upfront_date: obj.upfront_date || null,
+        upfront_date: document.getElementById("sfUpfrontDateG")?.value || null,
         installments,
         status: obj.status
       };
       const res = await fetch("/api/finance/student-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (json?.ok) { await postWebhook("student_finance_submit", json.profile || payload); }
-      showToast(json.ok ? "پروفایل مالی ثبت شد" : "خطا در ثبت پروفایل", json.ok ? "success" : "error");
+      const errText = (() => {
+        if (json?.errors) {
+          const entries = Object.entries(json.errors);
+          return entries.map(([k,v]) => `${v}`).join(" | ");
+        }
+        return json?.message || "";
+      })();
+      showToast(json.ok ? "پروفایل مالی ثبت شد" : (`خطا در ثبت پروفایل${errText?`: ${errText}`:""}`), json.ok ? "success" : "error");
       closeStudentFinanceForm();
       loadStudentFinance();
     });

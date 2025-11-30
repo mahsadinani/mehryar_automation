@@ -7,6 +7,7 @@ import { supabase, supabaseInfo } from "./supabaseClient.js";
 import multer from "multer";
 import XLSX from "xlsx";
 import fs from "fs";
+import crypto from "crypto";
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,8 +47,53 @@ const state = {
   attendance: {},
   transactions: [],
   students: [],
-  studentFinanceProfiles: []
+  studentFinanceProfiles: [],
+  webhooks: {}
 };
+
+async function getEventWebhooks(event){
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from("data_links").select("key,url").like("key", `webhook:${event}`);
+      if (error) return [];
+      const urls = [];
+      (data||[]).forEach(r => {
+        const parts = String(r.url||"").split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+        urls.push(...parts);
+      });
+      return urls;
+    } catch { return []; }
+  }
+  const arr = state.webhooks[event] || [];
+  return Array.isArray(arr) ? arr : [];
+}
+
+async function sendWebhooks(event, payload){
+  const urls = await getEventWebhooks(event);
+  if (!urls.length) return { ok: true, sent: 0 };
+  const id = (payload && (payload.id || payload.code || payload.student_id || payload.class_id)) || Date.now().toString();
+  const secret = process.env.WEBHOOK_SECRET || "";
+  const bodyStr = JSON.stringify({ event, data: payload });
+  const sig = secret ? crypto.createHmac("sha256", secret).update(bodyStr).digest("hex") : "";
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Event": event,
+    "X-Id": String(id)
+  };
+  if (sig) headers["X-Signature"] = sig;
+  const post = async (url) => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(url, { method: "POST", headers, body: bodyStr });
+        if (r.ok) return true;
+      } catch {}
+      await new Promise(res => setTimeout(res, 300 * (attempt + 1)));
+    }
+    return false;
+  };
+  await Promise.all(urls.map(u => post(u)));
+  return { ok: true, sent: urls.length };
+}
 app.get("/api/data-links", async (req, res) => {
   if (supabase) {
     const { data, error } = await supabase.from("data_links").select("key,url");
@@ -101,12 +147,15 @@ app.post("/api/applicants", async (req, res) => {
       fallback.note = `${item.note || ""}${item.gender ? ` [gender:${item.gender}]` : ""}`.trim();
       const r2 = await supabase.from("applicants").insert([fallback]).select("*").single();
       if (r2.error) return res.status(500).json({ ok: false, error: r2.error.message });
+      sendWebhooks("applicant.create", r2.data).catch(()=>{});
       return res.json({ ok: true, applicant: r2.data });
     }
     if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("applicant.create", data).catch(()=>{});
     return res.json({ ok: true, applicant: data });
   }
   state.applicants.push({ ...item, createdAt: item.created_at });
+  sendWebhooks("applicant.create", item).catch(()=>{});
   res.json({ ok: true, applicant: item });
 });
 app.get("/api/applicants", async (req, res) => {
@@ -144,14 +193,17 @@ app.put("/api/applicants/:id", async (req, res) => {
       if (update.gender) fallback.note = `${update.note || ""} [gender:${update.gender}]`.trim();
       const r2 = await supabase.from("applicants").update(fallback).eq("id", id).select("*").single();
       if (r2.error) return res.status(500).json({ ok: false, error: r2.error.message });
+      sendWebhooks("applicant.update", r2.data).catch(()=>{});
       return res.json({ ok: true, applicant: r2.data });
     }
     if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("applicant.update", data).catch(()=>{});
     return res.json({ ok: true, applicant: data });
   }
   const idx = state.applicants.findIndex(a => a.id === id);
   if (idx >= 0) {
     state.applicants[idx] = { ...state.applicants[idx], ...update };
+    sendWebhooks("applicant.update", state.applicants[idx]).catch(()=>{});
     return res.json({ ok: true, applicant: state.applicants[idx] });
   }
   res.status(404).json({ ok: false });
@@ -161,10 +213,11 @@ app.delete("/api/applicants/:id", async (req, res) => {
   if (supabase) {
     const { error } = await supabase.from("applicants").delete().eq("id", id);
     if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("applicant.delete", { id }).catch(()=>{});
     return res.json({ ok: true });
   }
   const idx = state.applicants.findIndex(a => a.id === id);
-  if (idx >= 0) { state.applicants.splice(idx, 1); return res.json({ ok: true }); }
+  if (idx >= 0) { state.applicants.splice(idx, 1); sendWebhooks("applicant.delete", { id }).catch(()=>{}); return res.json({ ok: true }); }
   res.status(404).json({ ok: false });
 });
 app.post("/api/pre-register", (req, res) => {
@@ -213,9 +266,12 @@ app.post("/api/classes", async (req, res) => {
     const { data, error } = await supabase.from("classes").insert([item]).select("*").single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
     const normStudents = Array.isArray(data?.students) ? data.students : (typeof data?.students === "string" ? (data.students ? JSON.parse(data.students) : []) : []);
-    return res.json({ ok: true, cls: { ...data, students: normStudents } });
+    const out = { ...data, students: normStudents };
+    sendWebhooks("class.create", out).catch(()=>{});
+    return res.json({ ok: true, cls: out });
   }
   state.classes.push(item);
+  sendWebhooks("class.create", item).catch(()=>{});
   res.json({ ok: true, cls: item });
 });
 app.put("/api/classes/:id", async (req, res) => {
@@ -241,7 +297,9 @@ app.put("/api/classes/:id", async (req, res) => {
     const { data, error } = await supabase.from("classes").update(updateObj).eq("id", id).select("*").single();
     if (error) return res.status(500).json({ ok: false, error: error.message });
     const normStudents = Array.isArray(data?.students) ? data.students : (typeof data?.students === "string" ? (data.students ? JSON.parse(data.students) : []) : []);
-    return res.json({ ok: true, cls: { ...data, students: normStudents } });
+    const out = { ...data, students: normStudents };
+    sendWebhooks("class.update", out).catch(()=>{});
+    return res.json({ ok: true, cls: out });
   }
   res.json({ ok: true });
 });
@@ -250,10 +308,11 @@ app.delete("/api/classes/:id", async (req, res) => {
   if (supabase) {
     const { error } = await supabase.from("classes").delete().eq("id", id);
     if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("class.delete", { id }).catch(()=>{});
     return res.json({ ok: true });
   }
   const idx = state.classes.findIndex(c => c.id === id);
-  if (idx >= 0) { state.classes.splice(idx, 1); return res.json({ ok: true }); }
+  if (idx >= 0) { state.classes.splice(idx, 1); sendWebhooks("class.delete", { id }).catch(()=>{}); return res.json({ ok: true }); }
   res.status(404).json({ ok: false });
 });
 // Teachers API
@@ -308,7 +367,9 @@ app.post("/api/classes/attendance", async (req, res) => {
     const row = { class_id: classId, student_id: studentId, present: !!present, session_index: Number(session_index||0), updated_at: new Date().toISOString() };
     const { data, error } = await supabase.from("attendance").upsert([row], { onConflict: "class_id,student_id,session_index" }).select("*").maybeSingle();
     if (error) return res.status(500).json({ ok: false });
-    return res.json({ ok: true, attendance: data || (Array.isArray(data) ? data[0] : data) });
+    const out = data || (Array.isArray(data) ? data[0] : data);
+    sendWebhooks("attendance.upsert", out).catch(()=>{});
+    return res.json({ ok: true, attendance: out });
   }
   const key = `${classId}:${studentId}`;
   const arr = state.attendance[key] || [];
@@ -316,6 +377,7 @@ app.post("/api/classes/attendance", async (req, res) => {
   const row = { present: !!present, session_index: Number(session_index||0), updatedAt: new Date().toISOString() };
   if (idx >= 0) arr[idx] = row; else arr.push(row);
   state.attendance[key] = arr;
+  sendWebhooks("attendance.upsert", { class_id: classId, student_id: studentId, ...row }).catch(()=>{});
   res.json({ ok: true, attendance: state.attendance[key] });
 });
 app.get("/api/finance/transactions", async (req, res) => {
@@ -332,10 +394,12 @@ app.post("/api/finance/transactions", async (req, res) => {
     const tx = { id: Date.now().toString(), created_at: new Date().toISOString(), student_id: body.studentId || "", amount: Number(body.amount || 0), note: body.note || "" };
     const { data, error } = await supabase.from("transactions").insert([tx]).select("*").single();
     if (error) return res.status(500).json({ ok: false });
+    sendWebhooks("finance.transaction.create", data).catch(()=>{});
     return res.json({ ok: true, transaction: data });
   }
   const tx = { id: Date.now().toString(), createdAt: new Date().toISOString(), ...body };
   state.transactions.push(tx);
+  sendWebhooks("finance.transaction.create", tx).catch(()=>{});
   res.json({ ok: true, transaction: tx });
 });
 app.get("/api/finance/student-profiles", async (req, res) => {
@@ -348,22 +412,41 @@ app.get("/api/finance/student-profiles", async (req, res) => {
 });
 app.post("/api/finance/student-profiles", async (req, res) => {
   const b = req.body || {};
+  const errors = {};
+  const isIsoDate = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (!b.student_id) errors.student_id = "شناسه شاگرد الزامی است";
+  if (!b.class_code) errors.class_code = "کد کلاس الزامی است";
+  const upfront_amount_num = Number(b.upfront_amount || 0);
+  if (!Number.isFinite(upfront_amount_num) || upfront_amount_num < 0) errors.upfront_amount = "مبلغ پیش‌پرداخت نامعتبر است";
+  if (b.upfront_date && !isIsoDate(b.upfront_date)) errors.upfront_date = "تاریخ پیش‌پرداخت باید در قالب YYYY-MM-DD باشد";
+  const instArr = Array.isArray(b.installments) ? b.installments : [];
+  instArr.forEach((it, idx) => {
+    if (!isIsoDate(it?.date||"")) errors[`installments.${idx}.date`] = "تاریخ قسط باید در قالب YYYY-MM-DD باشد";
+    const amt = Number(it?.amount || 0);
+    if (!Number.isFinite(amt) || amt < 0) errors[`installments.${idx}.amount`] = "مبلغ قسط نامعتبر است";
+  });
+  if (Object.keys(errors).length) {
+    console.log("[finance.profile.create] validation_errors", errors, "payload", b);
+    return res.status(400).json({ ok: false, error: "validation_failed", errors });
+  }
   const item = {
     id: Date.now().toString(),
     created_at: new Date().toISOString(),
-    student_id: b.student_id || "",
-    class_code: b.class_code || "",
-    upfront_amount: Number(b.upfront_amount || 0),
+    student_id: b.student_id,
+    class_code: b.class_code,
+    upfront_amount: upfront_amount_num,
     upfront_date: b.upfront_date || null,
-    installments: Array.isArray(b.installments) ? b.installments : [],
+    installments: instArr,
     status: b.status || "در انتظار تسویه"
   };
   if (supabase) {
     const { data, error } = await supabase.from("student_finance_profiles").insert([item]).select("*").single();
-    if (error) return res.status(500).json({ ok: false });
+    if (error) return res.status(500).json({ ok: false, error: "db_error", message: error.message });
+    sendWebhooks("finance.profile.create", data).catch(()=>{});
     return res.json({ ok: true, profile: data });
   }
   state.studentFinanceProfiles.push(item);
+  sendWebhooks("finance.profile.create", item).catch(()=>{});
   res.json({ ok: true, profile: item });
 });
 app.put("/api/finance/student-profiles/:id", async (req, res) => {
@@ -379,14 +462,59 @@ app.put("/api/finance/student-profiles/:id", async (req, res) => {
       status: b.status
     }).eq("id", id).select("*").single();
     if (error) return res.status(500).json({ ok: false });
+    sendWebhooks("finance.profile.update", data).catch(()=>{});
     return res.json({ ok: true, profile: data });
   }
   const idx = state.studentFinanceProfiles.findIndex(p => p.id === id);
   if (idx >= 0) {
     state.studentFinanceProfiles[idx] = { ...state.studentFinanceProfiles[idx], ...b };
+    sendWebhooks("finance.profile.update", state.studentFinanceProfiles[idx]).catch(()=>{});
     return res.json({ ok: true, profile: state.studentFinanceProfiles[idx] });
   }
   res.status(404).json({ ok: false });
+});
+
+app.get("/api/webhooks", async (req, res) => {
+  if (supabase) {
+    const { data, error } = await supabase.from("data_links").select("key,url").like("key", "webhook:%");
+    if (error) return res.json({});
+    const out = {};
+    (data||[]).forEach(r => {
+      const ev = String(r.key||"").replace(/^webhook:/, "");
+      const urls = String(r.url||"").split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+      out[ev] = urls;
+    });
+    return res.json(out);
+  }
+  res.json(state.webhooks);
+});
+
+app.post("/api/webhooks", async (req, res) => {
+  const mapping = req.body || {};
+  if (supabase) {
+    const rows = Object.keys(mapping).map(ev => ({ key: `webhook:${ev}`, url: (Array.isArray(mapping[ev])?mapping[ev].join(","):String(mapping[ev]||"")) }));
+    const { data, error } = await supabase.from("data_links").upsert(rows, { onConflict: "key" });
+    if (error) return res.status(500).json({ ok: false });
+    const out = {};
+    (data || rows).forEach(r => {
+      const ev = String(r.key||"").replace(/^webhook:/, "");
+      const urls = String(r.url||"").split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+      out[ev] = urls;
+    });
+    return res.json({ ok: true, webhooks: out });
+  }
+  Object.keys(mapping).forEach(ev => { state.webhooks[ev] = Array.isArray(mapping[ev]) ? mapping[ev] : String(mapping[ev]||"").split(/[,\s]+/).map(s=>s.trim()).filter(Boolean); });
+  res.json({ ok: true, webhooks: state.webhooks });
+});
+
+app.post("/debug/webhook-capture", express.json(), (req, res) => {
+  state._debug_webhook_calls = state._debug_webhook_calls || [];
+  state._debug_webhook_calls.push({ ts: Date.now(), headers: req.headers, body: req.body });
+  res.json({ ok: true });
+});
+
+app.get("/debug/webhook-calls", (req, res) => {
+  res.json(state._debug_webhook_calls || []);
 });
 app.get("/api/leads", async (req, res) => {
   if (supabase) {
@@ -474,7 +602,7 @@ app.post("/api/students", async (req, res) => {
     let payload = { ...item };
     for (let i = 0; i < 8; i++) {
       const { data, error } = await supabase.from("students").insert([payload]).select("*").maybeSingle();
-      if (!error) return res.json({ ok: true, student: data || (Array.isArray(data) ? data[0] : data) });
+      if (!error) { const out = data || (Array.isArray(data) ? data[0] : data); sendWebhooks("student.create", out).catch(()=>{}); return res.json({ ok: true, student: out }); }
       const msg = String(error.message||"");
       const m1 = msg.match(/Could not find the '([^']+)' column/i);
       const m2 = msg.match(/column\s+"([^"]+)"\s+does not exist/i);
@@ -485,6 +613,7 @@ app.post("/api/students", async (req, res) => {
     return res.status(500).json({ ok: false, error: "schema_mismatch" });
   }
   state.students.push(item);
+  sendWebhooks("student.create", item).catch(()=>{});
   res.json({ ok: true, student: item });
 });
 app.put("/api/students/:id", async (req, res) => {
@@ -495,7 +624,7 @@ app.put("/api/students/:id", async (req, res) => {
     payload.student_id = (() => { const r = String(b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || payload.student_id || ""); })();
     for (let i = 0; i < 8; i++) {
       const { data, error } = await supabase.from("students").update(payload).eq("id", id).select("*").maybeSingle();
-      if (!error) return res.json({ ok: true, student: data || (Array.isArray(data) ? data[0] : data) });
+      if (!error) { const out = data || (Array.isArray(data) ? data[0] : data); sendWebhooks("student.update", out).catch(()=>{}); return res.json({ ok: true, student: out }); }
       const msg = String(error.message||"");
       const m1 = msg.match(/Could not find the '([^']+)' column/i);
       const m2 = msg.match(/column\s+"([^"]+)"\s+does not exist/i);
@@ -508,6 +637,7 @@ app.put("/api/students/:id", async (req, res) => {
   const idx = state.students.findIndex(s => s.id === id);
   if (idx >= 0) {
     state.students[idx] = { ...state.students[idx], ...b };
+    sendWebhooks("student.update", state.students[idx]).catch(()=>{});
     return res.json({ ok: true, student: state.students[idx] });
   }
   res.status(404).json({ ok: false });
@@ -573,10 +703,11 @@ app.delete("/api/students/:id", async (req, res) => {
   if (supabase) {
     const { error } = await supabase.from("students").delete().eq("id", id);
     if (error) return res.status(500).json({ ok: false, error: error.message });
+    sendWebhooks("student.delete", { id }).catch(()=>{});
     return res.json({ ok: true });
   }
   const idx = state.students?.findIndex?.(s => s.id === id) ?? -1;
-  if (idx >= 0) { state.students.splice(idx, 1); return res.json({ ok: true }); }
+  if (idx >= 0) { state.students.splice(idx, 1); sendWebhooks("student.delete", { id }).catch(()=>{}); return res.json({ ok: true }); }
   res.status(404).json({ ok: false });
 });
 app.delete("/api/tech-courses/:id", async (req, res) => {
