@@ -1,0 +1,11 @@
+alter table if exists students add column if not exists email text;
+alter table if exists students add column if not exists course_id text;
+alter table if exists students add column if not exists status text default 'active';
+alter table if exists students add column if not exists last_name text;
+alter table if exists students add column if not exists father_name text;
+alter table if exists students add column if not exists national_id text;
+alter table if exists students add column if not exists address text;
+alter table if exists students add column if not exists emergency_phone text;
+alter table if exists students add column if not exists issuer text;
+alter table if exists students add column if not exists english_name text;
+alter table if exists students add column if not exists student_id text;
