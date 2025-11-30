@@ -332,6 +332,15 @@
       </div>
       <div style="margin:10px 0"><input id="classesSearch" placeholder="جستجو کلاس..." style="width:100%; padding:8px; border:1px solid #dbe0e6; border-radius:10px; background:#f5f7fa" /></div>
       <div id="classesList" class="grid"></div>
+      <div id="studentsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#fff; width:90%; max-width:640px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #eee;">
+            <h3 id="studentsModalTitle" style="margin:0">لیست شاگردان</h3>
+            <button id="studentsModalClose" class="btn btn-secondary">بستن</button>
+          </div>
+          <div id="studentsModalBody" style="padding:12px 16px; max-height:60vh; overflow:auto"></div>
+        </div>
+      </div>
       <div id="classFormPanel" class="rf-fields" style="display:none; margin-top:12px">
         <form id="classForm">
           <div class="rf-row"><label>کد کلاس</label><input name="code" required /></div>
@@ -1272,7 +1281,8 @@
           showToast(json.ok?"کلاس حذف شد":"خطا در حذف", json.ok?"success":"error");
           loadClasses();
         };
-        actions.appendChild(edit); actions.appendChild(del);
+        const viewStudents = document.createElement("button"); viewStudents.className = "btn btn-secondary"; viewStudents.textContent = "مشاهده لیست شاگردان"; viewStudents.onclick = () => openClassStudentsModal(x);
+        actions.appendChild(edit); actions.appendChild(del); actions.appendChild(viewStudents);
         c.appendChild(info); c.appendChild(actions);
         list.appendChild(c);
       });
@@ -1716,3 +1726,24 @@
 </script>
   </body>
   </html>
+    const studentsModal = document.getElementById("studentsModal");
+    const studentsModalTitle = document.getElementById("studentsModalTitle");
+    const studentsModalBody = document.getElementById("studentsModalBody");
+    document.getElementById("studentsModalClose")?.addEventListener("click", () => { studentsModal.style.display = "none"; studentsModalBody.innerHTML = ""; });
+    async function openClassStudentsModal(cls){
+      const ids = Array.isArray(cls.students)?cls.students:[];
+      studentsModalTitle.textContent = `شاگردان کلاس: ${cls.title||cls.code||""}`;
+      studentsModalBody.innerHTML = "";
+      const res = await fetch("/api/students"); const all = await res.json();
+      const map = new Map(all.map(s => [s.id, s]));
+      if (!ids.length) { studentsModalBody.textContent = "شاگردی برای این کلاس ثبت نشده است"; studentsModal.style.display = "flex"; return; }
+      ids.forEach(sid => {
+        const st = map.get(sid) || { id:sid, name:sid };
+        const row = document.createElement("div"); row.className = "rf-plain-item";
+        const n = (st.name && String(st.name).trim()) || (st.full_name && String(st.full_name).trim()) || (st.english_name||"بدون نام");
+        const info = document.createElement("div"); info.textContent = `${n} | ${st.phone||""} ${st.student_id?`| ${st.student_id}`:""}`;
+        row.appendChild(info);
+        studentsModalBody.appendChild(row);
+      });
+      studentsModal.style.display = "flex";
+    }
