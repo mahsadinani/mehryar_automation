@@ -374,30 +374,25 @@ app.post("/api/students", async (req, res) => {
     id: Date.now().toString(),
     created_at: new Date().toISOString(),
     name: b.name || "",
-    last_name: b.last_name || "",
-    gender: b.gender || "",
-    father_name: b.father_name || "",
-    national_id: b.national_id || "",
-    address: b.address || "",
     phone: b.phone || "",
-    emergency_phone: b.emergency_phone || "",
-    english_name: b.english_name || "",
-    student_id: b.student_id || "",
-    issuer: b.issuer || "",
     status: b.status || "active"
   };
+  ["last_name","gender","father_name","national_id","address","emergency_phone","english_name","student_id","issuer"].forEach(k => {
+    if (b[k] !== undefined) item[k] = b[k] || "";
+  });
   const nidRaw = (item.national_id || "").replace(/\D/g, "");
   if (nidRaw.length === 10) item.student_id = nidRaw.replace(/^0+/, "");
   if (supabase) {
-    let { data, error } = await supabase.from("students").insert([item]).select("*").single();
-    if (error && /emergency_phone/.test(error.message||"")) {
-      const fallback = { ...item }; delete fallback.emergency_phone;
-      const r2 = await supabase.from("students").insert([fallback]).select("*").single();
-      if (r2.error) return res.status(500).json({ ok: false, error: r2.error.message });
-      return res.json({ ok: true, student: r2.data });
+    let payload = { ...item };
+    for (let i = 0; i < 5; i++) {
+      const { data, error } = await supabase.from("students").insert([payload]).select("*").single();
+      if (!error) return res.json({ ok: true, student: data });
+      const msg = String(error.message||"");
+      const m = msg.match(/Could not find the '([^']+)' column/i);
+      if (m && payload[m[1]] !== undefined) { delete payload[m[1]]; continue; }
+      return res.status(500).json({ ok: false, error: error.message });
     }
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true, student: data });
+    return res.status(500).json({ ok: false, error: "schema_mismatch" });
   }
   state.students.push(item);
   res.json({ ok: true, student: item });
@@ -406,29 +401,19 @@ app.put("/api/students/:id", async (req, res) => {
   const id = req.params.id;
   const b = req.body || {};
   if (supabase) {
-    const updateObj = {
-      name: b.name,
-      last_name: b.last_name,
-      gender: b.gender,
-      father_name: b.father_name,
-      national_id: b.national_id,
-      address: b.address,
-      phone: b.phone,
-      emergency_phone: b.emergency_phone,
-      english_name: b.english_name,
-      student_id: (() => { const r = (b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || ""); })(),
-      issuer: b.issuer,
-      status: b.status
-    };
-    let { data, error } = await supabase.from("students").update(updateObj).eq("id", id).select("*").single();
-    if (error && /emergency_phone/.test(error.message||"")) {
-      const fallback = { ...updateObj }; delete fallback.emergency_phone;
-      const r2 = await supabase.from("students").update(fallback).eq("id", id).select("*").single();
-      if (r2.error) return res.status(500).json({ ok: false, error: r2.error.message });
-      return res.json({ ok: true, student: r2.data });
+    const updateObj = {};
+    ["name","last_name","gender","father_name","national_id","address","phone","emergency_phone","english_name","issuer","status"].forEach(k => { if (b[k] !== undefined) updateObj[k] = b[k]; });
+    updateObj.student_id = (() => { const r = (b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || updateObj.student_id || ""); })();
+    let payload = updateObj;
+    for (let i = 0; i < 5; i++) {
+      const { data, error } = await supabase.from("students").update(payload).eq("id", id).select("*").single();
+      if (!error) return res.json({ ok: true, student: data });
+      const msg = String(error.message||"");
+      const m = msg.match(/Could not find the '([^']+)' column/i);
+      if (m && payload[m[1]] !== undefined) { delete payload[m[1]]; continue; }
+      return res.status(500).json({ ok: false, error: error.message });
     }
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true, student: data });
+    return res.status(500).json({ ok: false, error: "schema_mismatch" });
   }
   const idx = state.students.findIndex(s => s.id === id);
   if (idx >= 0) {
