@@ -338,13 +338,7 @@
           <div class="rf-row"><label>نام دوره</label>
             <select name="course_id" id="clsCourse"></select>
           </div>
-          <div class="rf-row"><label>تاریخ شروع کلاس</label>
-            <div style="display:flex; gap:8px; align-items:center">
-              <input id="clsStartJ" placeholder="روز/ماه/سال شمسی" />
-              <div id="clsStartDrop" class="dropdown"></div>
-              <input name="start" id="clsStartG" type="hidden" />
-            </div>
-          </div>
+          
           <div class="rf-row"><label>تاریخ پایان دوره</label>
             <div style="display:flex; gap:8px; align-items:center">
               <input id="clsEndJ" placeholder="روز/ماه/سال شمسی" />
@@ -982,7 +976,6 @@
     function pad2(n){ return String(n).padStart(2, "0"); }
     function attachJalaliPickers(){
       const defs = [
-        { j: document.getElementById("clsStartJ"), d: document.getElementById("clsStartDrop"), g: document.getElementById("clsStartG") },
         { j: document.getElementById("clsEndJ"), d: document.getElementById("clsEndDrop"), g: document.getElementById("clsEndG") },
         { j: document.getElementById("clsCertJ"), d: document.getElementById("clsCertDrop"), g: document.getElementById("clsCertG") }
       ];
@@ -1223,7 +1216,7 @@
         const actions = document.createElement("div"); actions.className = "actions";
         const edit = document.createElement("button"); edit.className = "btn"; edit.textContent = "ویرایش"; edit.onclick = () => {
           openClassForm();
-          Object.entries({ code: x.code, start: x.start, end_date: x.end_date, certificate_issue_date: x.certificate_issue_date }).forEach(([k,v])=>{ const el = classForm.querySelector(`[name="${k}"]`); if (el) el.value = v || ""; });
+          Object.entries({ code: x.code, end_date: x.end_date, certificate_issue_date: x.certificate_issue_date }).forEach(([k,v])=>{ const el = classForm.querySelector(`[name="${k}"]`); if (el) el.value = v || ""; });
           clsSessionsCount.value = Number(x.sessions_count||1);
           renderSessionBoxes();
           if (Array.isArray(x.sessions)) {
@@ -1330,6 +1323,19 @@
       sfInstallments.appendChild(wrap);
     }
     addInstallmentBtn.addEventListener("click", addInstallmentRow);
+    function attachFinanceJalaliPickers(){
+      const uj = document.getElementById("sfUpfrontDateJ");
+      const ug = document.getElementById("sfUpfrontDate");
+      const ud = document.getElementById("sfUpfrontDrop");
+      if (uj && ug && ud){ uj.addEventListener("click", () => { const vis = ud.style.display === "block"; ud.style.display = vis ? "none" : "block"; renderPicker(ud, uj, ug); }); }
+      Array.from(sfInstallments.querySelectorAll(".card")).forEach(card => {
+        const j = card.querySelector('[name^="installment_date_j_"]');
+        const g = card.querySelector('[name^="installment_date_g_"]');
+        const dId = (j?.name||"").replace(/^installment_date_j_/, "instDrop_");
+        const d = document.getElementById(dId);
+        if (j && g && d){ j.addEventListener("click", () => { const vis = d.style.display === "block"; d.style.display = vis ? "none" : "block"; renderPicker(d, j, g); }); }
+      });
+    }
     const studentFinanceList = document.getElementById("studentFinanceList");
     const studentFinanceSearch = document.getElementById("studentFinanceSearch");
     function renderStudentFinance(items){
