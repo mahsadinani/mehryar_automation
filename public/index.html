@@ -106,7 +106,7 @@
           <div class="rf-status">
             <button id="addApplicantBtn" class="btn" style="margin-bottom:10px">ثبت مشتری جدید</button>
           </div>
-          <div class="rf-fields" id="applicantFormPanel">
+          <div class="rf-fields" id="applicantFormPanel" style="display:none">
           <form id="applicantForm">
             <div class="rf-row">
               <label>تاریخ روز</label>
@@ -460,6 +460,15 @@
       box.appendChild(el);
       setTimeout(() => { el.remove(); }, 2500);
     }
+    async function postWebhook(type, payload){
+      try {
+        await fetch("https://33499-il9bs.irann8n.com/webhook/e46e7fbf-e6eb-4008-9516-016957e65d89", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, payload })
+        });
+      } catch {}
+    }
     const applicantForm = document.getElementById("applicantForm");
     const addApplicantBtn = document.getElementById("addApplicantBtn");
     const applicantFormPanel = document.getElementById("applicantFormPanel");
@@ -491,23 +500,15 @@
       payload.send_course_info = !!document.getElementById("chkSendInfo")?.checked;
       const isEdit = !!payload.id;
       if (!isEdit) {
-      try {
-        const res = await fetch("https://33499-il9bs.irann8n.com/webhook-test/e46e7fbf-e6eb-4008-9516-016957e65d89", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-          if (!res.ok) {
-            showToast("وب‌هوک فعال نیست یا خطا دارد", "error");
-          } else {
-            showToast("ارسال به وب‌هوک انجام شد", "success");
-          }
-        } catch (err) {
-          showToast("عدم دسترسی به وب‌هوک", "error");
-        }
-        try { await fetch("/api/applicants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); } catch {}
+        const res = await fetch("/api/applicants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (json?.ok) { await postWebhook("applicant_submit", json.applicant || payload); showToast("ثبت مشتری انجام شد", "success"); }
+        else { showToast("خطا در ثبت مشتری", "error"); }
       } else {
-        try { await fetch(`/api/applicants/${payload.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); showToast("متقاضی ویرایش شد", "success"); } catch { showToast("خطا در ویرایش متقاضی", "error"); }
+        const res = await fetch(`/api/applicants/${payload.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (json?.ok) { await postWebhook("applicant_update", json.applicant || payload); showToast("متقاضی ویرایش شد", "success"); }
+        else { showToast("خطا در ویرایش متقاضی", "error"); }
       }
       loadApplicants();
     });
@@ -688,6 +689,7 @@
         res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       }
       const json = await res.json();
+      if (json?.ok) { await postWebhook(id?"student_update":"student_submit", json.student || payload); }
       showToast(id ? "شاگرد به‌روزرسانی شد" : "شاگرد اضافه شد", json.ok ? "success" : "error");
       closeStudentForm();
       loadStudents();
@@ -782,6 +784,7 @@
       payload.title = clsCourse.selectedOptions[0]?.textContent || "";
       const res = await fetch("/api/classes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
+      if (json?.ok) { await postWebhook("class_submit", json.cls || payload); }
       showToast(json.ok ? "کلاس ثبت شد" : "خطا در ثبت کلاس", json.ok ? "success" : "error");
       closeClassForm();
       loadClasses();
@@ -884,6 +887,7 @@
       };
       const res = await fetch("/api/finance/student-profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
+      if (json?.ok) { await postWebhook("student_finance_submit", json.profile || payload); }
       showToast(json.ok ? "پروفایل مالی ثبت شد" : "خطا در ثبت پروفایل", json.ok ? "success" : "error");
       closeStudentFinanceForm();
       loadStudentFinance();
@@ -985,10 +989,10 @@
       const payload = Object.fromEntries(fd.entries());
       const id = payload.id;
       let res;
-      try { await fetch("https://33499-il9bs.irann8n.com/webhook-test/e46e7fbf-e6eb-4008-9516-016957e65d89", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"tech_course_submit", payload }) }); } catch {}
       if(id) res = await fetch(`/api/tech-courses/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
       else res = await fetch("/api/tech-courses", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
       const json = await res.json();
+      if (json?.ok) { await postWebhook(id?"tech_course_update":"tech_course_submit", json.course || payload); }
       showToast(id?"دوره فنی به‌روزرسانی شد":"دوره فنی اضافه شد", json.ok?"success":"error");
       closeTechCourseForm();
       loadTechCourses();
@@ -1048,29 +1052,33 @@
       const bannerInput = document.getElementById("schoolBannerFile");
       const bannerFile = bannerInput?.files?.[0] || null;
       const id = payload.id;
-      let res;
-      try { await fetch("https://33499-il9bs.irann8n.com/webhook/e46e7fbf-e6eb-4008-9516-016957e65d89", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type:"school_course_submit", payload }) }); } catch {}
+      let saved;
       if(id){
         if(bannerFile){
           const url = await uploadBannerFile(bannerFile, id, payload.name);
           if(url) payload.banner = url;
         }
-        res = await fetch(`/api/courses/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+        const res = await fetch(`/api/courses/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+        const json = await res.json();
+        saved = json;
       } else {
-        res = await fetch("/api/courses", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+        const res = await fetch("/api/courses", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
         const created = await res.json();
+        saved = created;
         if(created?.ok){
           const courseId = created.course?.id || "";
           if(bannerFile && courseId){
             const url = await uploadBannerFile(bannerFile, courseId, payload.name);
             if(url){
-              await fetch(`/api/courses/${courseId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ banner: url })});
+              const res2 = await fetch(`/api/courses/${courseId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ banner: url })});
+              const json2 = await res2.json();
+              saved = json2?.ok ? json2 : saved;
             }
           }
         }
       }
-      const json = await res.json();
-      showToast(id?"دوره آموزشگاهی به‌روزرسانی شد":"دوره آموزشگاهی اضافه شد", json.ok?"success":"error");
+      if (saved?.ok) { await postWebhook(id?"school_course_update":"school_course_submit", saved.course || payload); }
+      showToast(id?"دوره آموزشگاهی به‌روزرسانی شد":"دوره آموزشگاهی اضافه شد", saved?.ok?"success":"error");
       closeSchoolCourseForm();
       loadSchoolCourses();
     });
