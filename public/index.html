@@ -1137,10 +1137,13 @@
     const clsStudentsDisplay = document.getElementById("clsStudentsDisplay");
     const clsStudentsSearch = document.getElementById("clsStudentsSearch");
     window.selectedClassStudents = [];
+    function clearSelectedClassStudents(){ window.selectedClassStudents = []; renderSelectedClassStudents(); renderStudentsDropdown(window.studentsDataForClass||[]); }
     function renderSelectedClassStudents(){
       clsStudentsDisplay.innerHTML = "";
       if (!window.selectedClassStudents.length) { clsStudentsDisplay.textContent = "انتخاب شاگردان..."; return; }
       window.selectedClassStudents.forEach(s => { const tag = document.createElement("span"); tag.className = "rf-tag"; const full = s.full; tag.textContent = full; clsStudentsDisplay.appendChild(tag); });
+      const count = document.createElement("span"); count.className = "rf-tag"; count.textContent = String(window.selectedClassStudents.length);
+      clsStudentsDisplay.appendChild(count);
     }
     function toggleClassStudent(s){
       const arr = window.selectedClassStudents;
@@ -1156,7 +1159,7 @@
         const full = (st.full_name && String(st.full_name).trim()) || [st.name, st.last_name].filter(Boolean).join(" ") || (st.english_name||"بدون نام");
         cb.checked = window.selectedClassStudents.some(x => x.id === (st.id||""));
         cb.onchange = () => toggleClassStudent({ id: st.id || `${st.name}`, full });
-        const label = document.createElement("span"); label.textContent = full;
+        const label = document.createElement("span"); label.textContent = full + (st.phone?` | ${st.phone}`:"") + (st.student_id?` | ${st.student_id}`:"");
         row.appendChild(cb); row.appendChild(label);
         row.onclick = () => { cb.checked = !cb.checked; cb.onchange(); };
         clsStudentsList.appendChild(row);
@@ -1167,6 +1170,7 @@
       window.studentsDataForClass = students;
       renderStudentsDropdown(students);
       renderSelectedClassStudents();
+      addClearButton(clsStudentsPicker, clearSelectedClassStudents);
     }
     loadStudentsForClass();
     clsStudentsPicker?.addEventListener("click", () => { const vis = clsStudentsDropdown.style.display === "block"; clsStudentsDropdown.style.display = vis ? "none" : "block"; });
