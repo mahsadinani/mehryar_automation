@@ -383,13 +383,16 @@ app.post("/api/students", async (req, res) => {
   const nidRaw = (item.national_id || "").replace(/\D/g, "");
   if (nidRaw.length === 10) item.student_id = nidRaw.replace(/^0+/, "");
   if (supabase) {
-    let payload = { ...item };
-    for (let i = 0; i < 5; i++) {
+    const allow = ["id","created_at","name","phone","status","student_id"]; 
+    let payload = Object.fromEntries(Object.entries(item).filter(([k]) => allow.includes(k)));
+    for (let i = 0; i < 8; i++) {
       const { data, error } = await supabase.from("students").insert([payload]).select("*").single();
       if (!error) return res.json({ ok: true, student: data });
       const msg = String(error.message||"");
-      const m = msg.match(/Could not find the '([^']+)' column/i);
-      if (m && payload[m[1]] !== undefined) { delete payload[m[1]]; continue; }
+      const m1 = msg.match(/Could not find the '([^']+)' column/i);
+      const m2 = msg.match(/column\s+"([^"]+)"\s+does not exist/i);
+      const missing = (m1 && m1[1]) || (m2 && m2[1]);
+      if (missing && payload[missing] !== undefined) { delete payload[missing]; continue; }
       return res.status(500).json({ ok: false, error: error.message });
     }
     return res.status(500).json({ ok: false, error: "schema_mismatch" });
@@ -404,13 +407,16 @@ app.put("/api/students/:id", async (req, res) => {
     const updateObj = {};
     ["name","last_name","gender","father_name","national_id","address","phone","emergency_phone","english_name","issuer","status"].forEach(k => { if (b[k] !== undefined) updateObj[k] = b[k]; });
     updateObj.student_id = (() => { const r = (b.national_id || "").replace(/\D/g, ""); return r.length === 10 ? r.replace(/^0+/, "") : (b.student_id || updateObj.student_id || ""); })();
-    let payload = updateObj;
-    for (let i = 0; i < 5; i++) {
+    const allow = ["name","last_name","phone","status","student_id","english_name","national_id","address","issuer","father_name","gender","emergency_phone"];
+    let payload = Object.fromEntries(Object.entries(updateObj).filter(([k]) => allow.includes(k)));
+    for (let i = 0; i < 8; i++) {
       const { data, error } = await supabase.from("students").update(payload).eq("id", id).select("*").single();
       if (!error) return res.json({ ok: true, student: data });
       const msg = String(error.message||"");
-      const m = msg.match(/Could not find the '([^']+)' column/i);
-      if (m && payload[m[1]] !== undefined) { delete payload[m[1]]; continue; }
+      const m1 = msg.match(/Could not find the '([^']+)' column/i);
+      const m2 = msg.match(/column\s+"([^"]+)"\s+does not exist/i);
+      const missing = (m1 && m1[1]) || (m2 && m2[1]);
+      if (missing && payload[missing] !== undefined) { delete payload[missing]; continue; }
       return res.status(500).json({ ok: false, error: error.message });
     }
     return res.status(500).json({ ok: false, error: "schema_mismatch" });
