@@ -869,27 +869,7 @@
         c.className = "rf-plain-item";
         const info = document.createElement("div");
         info.textContent = `${title} | ${x.phone || ""} ${x.student_id ? `| ${x.student_id}` : ""}`;
-        const actions = document.createElement("div");
-        actions.className = "actions";
-        actions.style.marginTop = "0";
-        const edit = document.createElement("button");
-        edit.className = "btn btn-secondary";
-        edit.textContent = "ویرایش";
-        edit.onclick = () => openStudentForm(x);
-        const del = document.createElement("button");
-        del.className = "btn btn-secondary";
-        del.textContent = "حذف";
-        del.onclick = async () => {
-          if (!x.id) { showToast("شناسه نامعتبر", "error"); return; }
-          const res = await fetch(`/api/students/${x.id}`, { method: "DELETE" });
-          const json = await res.json().catch(()=>({ ok:false }));
-          showToast(json.ok?"شاگرد حذف شد":"خطا در حذف", json.ok?"success":"error");
-          loadStudents();
-        };
-        actions.appendChild(edit);
-        actions.appendChild(del);
         c.appendChild(info);
-        c.appendChild(actions);
         studentsList.appendChild(c);
       });
     }
