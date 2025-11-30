@@ -1583,7 +1583,7 @@
           });
           if (found) clsName = found.title || found.name || found.code || "";
         }
-        const info = document.createElement("div"); const money = formatFaNumber(x.upfront_amount||0);
+        const info = document.createElement("div");
         const inst = Array.isArray(x.installments) ? x.installments : [];
         const instSum = inst.reduce((a,b)=>a + (Number(String(b.amount||"").replace(/[^0-9]/g,""))||0), 0);
         let tuition = Number(x.course_tuition||0);
@@ -1594,9 +1594,8 @@
         }
         const discount = Number(x.discount||0);
         const totalPaid = (Number(x.upfront_amount||0) + instSum);
-        const netDue = Math.max(0, tuition - discount);
-        const remain = Math.max(0, netDue - totalPaid);
-        info.textContent = `${sName} | ${clsName} | ${status} ${(x.upfront_amount!==undefined && x.upfront_amount!==null)?`| پیش‌پرداخت: ${money}`:""} | پرداختی: ${formatFaNumber(totalPaid)} | باقی‌مانده: ${formatFaNumber(remain)}`;
+        const remain = Math.max(0, Math.max(0, tuition - discount) - totalPaid);
+        info.textContent = `${sName} | ${clsName} | ${status} | پرداختی: ${formatFaNumber(totalPaid)} | باقی‌مانده: ${formatFaNumber(remain)}`;
         const actions = document.createElement("div"); actions.className = "actions"; actions.style.marginTop = "0";
         const editBtn = document.createElement("button"); editBtn.className = "btn"; editBtn.textContent = "ویرایش"; editBtn.onclick = () => openStudentFinanceForm(x);
         const delBtn = document.createElement("button"); delBtn.className = "btn btn-secondary"; delBtn.textContent = "حذف"; delBtn.onclick = async () => { if (!x.id) { showToast("شناسه نامعتبر", "error"); return; } const res = await fetch(`/api/finance/student-profiles/${x.id}`, { method: "DELETE" }); const json = await res.json().catch(()=>({ ok:false })); showToast(json.ok?"پروفایل مالی حذف شد":"خطا در حذف", json.ok?"success":"error"); loadStudentFinance(); };
