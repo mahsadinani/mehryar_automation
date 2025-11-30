@@ -1510,9 +1510,12 @@
       studentFinanceList.innerHTML = "";
       filtered.forEach(x => {
         const c = document.createElement("div");
-        let status = String(x.status||"") || "در انتظار تسویه";
-        const statusClass = status === "تسویه شده" ? "rf-finance-settled" : (status === "کنسل شده" ? "rf-finance-cancelled" : "rf-finance-pending");
+        let status = String(x.status||"").trim() || "در انتظار تسویه";
+        const low = status.toLowerCase();
+        const norm = /settled|paid|تسویه/.test(low) ? "settled" : (/cancel|کنسل|لغو/.test(low) ? "cancelled" : "pending");
+        const statusClass = norm === "settled" ? "rf-finance-settled" : (norm === "cancelled" ? "rf-finance-cancelled" : "rf-finance-pending");
         c.className = `rf-plain-item ${statusClass}`;
+        if (norm === "settled") c.style.background = "#d1fadf"; else if (norm === "cancelled") c.style.background = "#fee2e2"; else c.style.background = "#fff";
         const sName = stMap.get(x.student_id) || x.student_id || "";
         let clsName = clsMap.get(x.class_code) || x.class_code || "";
         if (!clsName) {

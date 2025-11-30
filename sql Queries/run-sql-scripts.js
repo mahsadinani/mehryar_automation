@@ -17,6 +17,7 @@ const sqlFiles = [
   '08_create_teachers.sql',
   '02_seed_school_courses.sql',
   '03_seed_tech_courses.sql'
+  , '11_finance_schema.sql'
 ];
 
 async function runSQLFile(fileName) {
