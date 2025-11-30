@@ -94,7 +94,7 @@ app.post("/api/applicants", async (req, res) => {
   };
   if (supabase) {
     const { data, error } = await supabase.from("applicants").insert([{ ...item }]).select("*").single();
-    if (error) return res.status(500).json({ ok: false });
+    if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, applicant: data });
   }
   state.applicants.push({ ...item, createdAt: item.created_at });
@@ -129,7 +129,7 @@ app.put("/api/applicants/:id", async (req, res) => {
   };
   if (supabase) {
     const { data, error } = await supabase.from("applicants").update(update).eq("id", id).select("*").single();
-    if (error) return res.status(500).json({ ok: false });
+    if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, applicant: data });
   }
   const idx = state.applicants.findIndex(a => a.id === id);
