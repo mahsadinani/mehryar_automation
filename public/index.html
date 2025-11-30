@@ -573,7 +573,7 @@
       const header = document.createElement("div"); header.style.display="flex"; header.style.justifyContent="space-between"; header.style.alignItems="center"; header.style.padding="8px";
       const prev = document.createElement("button"); prev.className="btn btn-secondary"; prev.textContent="<"; prev.onclick = () => { curJ.jm--; if (curJ.jm<1){ curJ.jm=12; curJ.jy--; } renderJalaliCalendar(); };
       const next = document.createElement("button"); next.className="btn btn-secondary"; next.textContent=">"; next.onclick = () => { curJ.jm++; if (curJ.jm>12){ curJ.jm=1; curJ.jy++; } renderJalaliCalendar(); };
-      const title = document.createElement("div"); title.textContent = `${monthsFa[curJ.jm-1]} ${toFaDigits(curJ.jy)}`;
+      const title = document.createElement("div"); const mi = Math.max(1, Math.min(12, Number(curJ.jm||1))) - 1; title.textContent = `${monthsFa[mi]} ${toFaDigits(curJ.jy)}`;
       header.appendChild(prev); header.appendChild(title); header.appendChild(next);
       rfDateDropdown.appendChild(header);
       const grid = document.createElement("div"); grid.style.display="grid"; grid.style.gridTemplateColumns="repeat(7, 1fr)"; grid.style.gap="6px"; grid.style.padding="8px";
@@ -584,17 +584,14 @@
       const ml = jMonthLen(curJ.jy, curJ.jm);
       for(let d=1; d<=ml; d++){
         const cell = document.createElement("button"); cell.className="btn btn-secondary"; cell.style.padding="6px"; cell.textContent = toFaDigits(pad2(d));
-        cell.onclick = () => { rfDate.value = `${toFaDigits(curJ.jy)}/${toFaDigits(pad2(curJ.jm))}/${toFaDigits(pad2(d))}`; rfDateDropdown.style.display="none"; };
+        cell.onclick = () => { rfDate.value = `${toFaDigits(pad2(d))}/${toFaDigits(pad2(curJ.jm))}/${toFaDigits(curJ.jy)}`; rfDateDropdown.style.display="none"; };
         grid.appendChild(cell);
       }
       rfDateDropdown.appendChild(grid);
     }
     if (rfDate) {
-      try {
-        rfDate.value = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
-      } catch {
-        rfDate.value = `${toFaDigits(curJ.jy)}/${toFaDigits(pad2(curJ.jm))}/${toFaDigits(pad2(curJ.jd))}`;
-      }
+      const now = new Date(); const [jy,jm,jd] = g2j(now.getFullYear(), now.getMonth()+1, now.getDate());
+      rfDate.value = `${toFaDigits(pad2(jd))}/${toFaDigits(pad2(jm))}/${toFaDigits(jy)}`;
       rfDate.addEventListener("click", () => {
         const visible = rfDateDropdown.style.display === "block";
         rfDateDropdown.style.display = visible ? "none" : "block";
@@ -703,7 +700,7 @@
         editBtn.onclick = () => {
           openApplicantForm();
           document.getElementById("rfApplicantId").value = x.id || "";
-          try { document.getElementById("rfDate").value = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date()); } catch { const d=new Date(); const [jy,jm,jd]=g2j(d.getFullYear(), d.getMonth()+1, d.getDate()); document.getElementById("rfDate").value = `${toFaDigits(jy)}/${toFaDigits(String(jm).padStart(2,"0"))}/${toFaDigits(String(jd).padStart(2,"0"))}`; }
+          { const d=new Date(); const [jy,jm,jd]=g2j(d.getFullYear(), d.getMonth()+1, d.getDate()); document.getElementById("rfDate").value = `${toFaDigits(String(jd).padStart(2,"0"))}/${toFaDigits(String(jm).padStart(2,"0"))}/${toFaDigits(jy)}`; }
           document.getElementById("rfName").value = x.name || "";
           document.getElementById("rfPhone").value = x.phone || "";
           document.getElementById("rfFamiliarity").value = x.familiarity || "";
