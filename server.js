@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { supabase, supabaseInfo } from "./supabaseClient.js";
 import multer from "multer";
 import XLSX from "xlsx";
+import fs from "fs";
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -513,10 +514,8 @@ app.get("/api/courses", async (req, res) => {
     if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json(data || []);
   }
-  res.json([
-    { id: "crs1", name: "مقدماتی", teacher: "مدرس A", tuition: 1000000, hour: "10-12", sessions_count: 8 },
-    { id: "crs2", name: "پیشرفته", teacher: "مدرس B", tuition: 1500000, hour: "14-16", sessions_count: 10 }
-  ]);
+  state.courses = state.courses || [];
+  return res.json(state.courses);
 });
 app.post("/api/courses", async (req, res) => {
   const b = req.body || {};
@@ -527,6 +526,8 @@ app.post("/api/courses", async (req, res) => {
     if (error) return res.status(500).json({ ok: false });
     return res.json({ ok: true, course: data });
   }
+  state.courses = state.courses || [];
+  state.courses.push(item);
   res.json({ ok: true, course: item });
 });
 app.put("/api/courses/:id", async (req, res) => {
@@ -544,7 +545,13 @@ app.put("/api/courses/:id", async (req, res) => {
     if (error) return res.status(500).json({ ok: false, error: error.message });
     return res.json({ ok: true, course: data });
   }
-  res.json({ ok: true });
+  state.courses = state.courses || [];
+  const idx = state.courses.findIndex(c => c.id === id);
+  if (idx >= 0) {
+    state.courses[idx] = { ...state.courses[idx], ...b, tuition: (b.tuition!==undefined?Number(b.tuition||0):state.courses[idx].tuition), sessions_count: (b.sessions_count!==undefined?Number(b.sessions_count||0):state.courses[idx].sessions_count) };
+    return res.json({ ok: true, course: state.courses[idx] });
+  }
+  res.status(404).json({ ok: false });
 });
 app.delete("/api/courses/:id", async (req, res) => {
   const id = req.params.id;
@@ -599,23 +606,38 @@ function slugify(str){
     .slice(0, 60);
 }
 app.post("/api/courses/upload-banner", upload.single("file"), async (req, res) => {
-  if (!supabase) return res.status(500).json({ ok:false });
   const file = req.file;
   const courseId = req.body.course_id || "";
   const courseName = req.body.name || "";
   if (!file) return res.status(400).json({ ok:false, error:"no_file" });
-  await ensureBucket("course-banners");
   const ext = (file.originalname.split(".").pop()||"jpg").toLowerCase();
   const base = courseId ? courseId : slugify(courseName) || Date.now().toString();
   const key = `${base}_${Date.now()}.${ext}`;
-  const { data: up, error: upErr } = await supabase.storage.from("course-banners").upload(key, file.buffer, { contentType: file.mimetype, upsert: true });
-  if (upErr) return res.status(500).json({ ok:false, error: upErr.message });
-  const { data: pub } = await supabase.storage.from("course-banners").getPublicUrl(key);
-  const url = (pub && (pub.publicUrl || pub.public_url)) || "";
-  if (courseId) {
-    await supabase.from("courses").update({ banner: url }).eq("id", courseId);
+  if (supabase) {
+    await ensureBucket("course-banners");
+    const { data: up, error: upErr } = await supabase.storage.from("course-banners").upload(key, file.buffer, { contentType: file.mimetype, upsert: true });
+    if (upErr) return res.status(500).json({ ok:false, error: upErr.message });
+    const { data: pub } = await supabase.storage.from("course-banners").getPublicUrl(key);
+    const url = (pub && (pub.publicUrl || pub.public_url)) || "";
+    if (courseId) { await supabase.from("courses").update({ banner: url }).eq("id", courseId); }
+    return res.json({ ok:true, url, path: up?.path || key });
+  } else {
+    try {
+      const dir = path.join(__dirname, "public", "uploads", "course-banners");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const filePath = path.join(dir, key);
+      await fs.promises.writeFile(filePath, file.buffer);
+      const url = `/uploads/course-banners/${key}`;
+      state.courses = state.courses || [];
+      if (courseId) {
+        const idx = state.courses.findIndex(c => c.id === courseId);
+        if (idx >= 0) state.courses[idx].banner = url;
+      }
+      return res.json({ ok:true, url, path: key });
+    } catch (err) {
+      return res.status(500).json({ ok:false, error: String(err.message||err) });
+    }
   }
-  return res.json({ ok:true, url, path: up?.path || key });
 });
 app.post("/api/tech-courses", async (req, res) => {
   const b = req.body || {};
